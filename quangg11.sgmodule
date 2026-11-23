@@ -7,7 +7,7 @@
 AND,((PROTOCOL,UDP),(DEST-PORT,443)),REJECT-NO-DROP
 
 [Script]
-g1-acq = type=http-response,pattern=^https:\/\/one\.google\.com\/ai\?,requires-body=1,max-size=0,script-path=https://cdn.jsdelivr.net/gh/crhywun/g1-acq@main/g1-acq.js
+g1-acq = type=http-response,pattern=^https:\/\/one\.google\.com\/ai\?,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/g1-acq.js
 
 [MITM]
 hostname = %APPEND% one.google.com

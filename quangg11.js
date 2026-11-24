@@ -21,7 +21,6 @@ var SKU_MAP = {
 
 /* 目标档不在目录时的备用档(社区实测 75p 档在 Play/iOS 目录均有出现) */
 var FALLBACK = {
-  "g1.ai.ultra.1month_eft.acq":     "g1.20tb.3months_ip_75p.acq",
   "g1.ai.ultra.3months_ip_90p.acq": "g1.ai.ultra.3months_ip_75p.acq"
 };
 

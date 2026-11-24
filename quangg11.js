@@ -15,13 +15,13 @@ console.log("[g1-acq] v6 loaded");
 
 /* 原始 iOS 内购 ID → 目标优惠档 */
 var SKU_MAP = {
-  "g1.ios.20tb.m.v2":     "g1.20tb.3months_ip_90p.acq",
+  "g1.ios.20tb.m.v2":     "g1.ai.ultra.1month_eft.acq",
   "g1.ios.30tb.ai.pro.m": "g1.ai.ultra.3months_ip_90p.acq"
 };
 
 /* 目标档不在目录时的备用档(社区实测 75p 档在 Play/iOS 目录均有出现) */
 var FALLBACK = {
-  "g1.20tb.3months_ip_90p.acq":     "g1.20tb.3months_ip_75p.acq",
+  "g1.ai.ultra.1month_eft.acq":     "g1.20tb.3months_ip_75p.acq",
   "g1.ai.ultra.3months_ip_90p.acq": "g1.ai.ultra.3months_ip_75p.acq"
 };
 

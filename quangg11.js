@@ -20,8 +20,8 @@ function createG1MappingConfig(store) {
 
   function defaults() {
     return [
-      { id: "default-2tb", match: "prefix", from: SOURCE_PREFIX, to: "g1.2tb.ai.12months_ip_90p", enabled: true },
-      { id: "default-20tb", match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.20tb.3months_ip_75p.acq", enabled: true },
+      { id: "default-2tb", match: "exact", from: "g1.ios.2tb.ai.m", to: "g1.2tb.ai.12months_ip_90p", enabled: true },
+      { id: "default-20tb", match: "exact", from: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", enabled: true },
       { id: "default-30tb", match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.ai.ultra.3months_ip_75p.acq", enabled: true }
     ];
   }
@@ -29,19 +29,9 @@ function createG1MappingConfig(store) {
   function presets() {
     return [
       {
-        id: "tr-ultra-legacy",
-        title: "1. [CHẮC CHẮN LÊN BẢNG GIÁ] Ultra 20TB & 30TB Mã Gốc (g1.ios.20tb.m / 30tb.m)",
-        description: "Bản v7.12.0 mới nhất: bỏ đuôi .v2 và .ai.pro, gọi trực tiếp mã gốc g1.ios.20tb.m (1989.99 TRY) và g1.ios.30tb.m (2949.99 TRY). Không phải mã .acq nên không bị Google chặn điều kiện tài khoản mới.",
-        replaceAll: true,
-        rules: [
-          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.ios.20tb.m", enabled: true },
-          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.ios.30tb.m", enabled: true }
-        ]
-      },
-      {
         id: "pro-1yuan-20tb",
-        title: "2. [CHẮC CHẮN LÊN BẢNG GIÁ] Giảm 99% 3 Tháng Đầu (Bấm từ nút Ultra 20TB)",
-        description: "Xóa toàn bộ quy tắc gây nhiễu, chỉ đổi riêng nút Ultra 20TB (g1.ios.20tb.m.v2) sang com.google.gemini.2tb.ai.m.3month_ip_99p (giảm 99% 3 tháng đầu, nhận gói AI Pro 2TB).",
+        title: "1. [ĐÃ TEST THÀNH CÔNG] Mở Pro Giảm 99% 3 Tháng Đầu (Chỉ đổi 1 nút Ultra 20TB)",
+        description: "Xóa sạch các quy tắc khác, chỉ đổi duy nhất nút Ultra 20TB (g1.ios.20tb.m.v2) -> com.google.gemini.2tb.ai.m.3month_ip_99p (giảm 99% 3 tháng đầu). Cách bấm: vào trang nâng cấp bấm nút Ultra 20TB.",
         replaceAll: true,
         rules: [
           { match: "exact", from: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", enabled: true }
@@ -49,63 +39,36 @@ function createG1MappingConfig(store) {
       },
       {
         id: "pro-1yuan-2tb",
-        title: "3. [CHẮC CHẮN LÊN BẢNG GIÁ] Giảm 99% 3 Tháng Đầu (Bấm từ nút Pro 2TB/5TB - v7.12.0)",
-        description: "Dùng khi bấm nút Ultra 20TB báo giao dịch chưa hoàn tất: đổi trực tiếp gói Pro (g1.ios.2tb.) sang com.google.gemini.2tb.ai.m.3month_ip_99p. Áp dụng xong mở tab gói Pro bấm đăng ký.",
+        title: "2. [ĐÃ TEST THÀNH CÔNG] Mở Pro Giảm 99% 3 Tháng Đầu (Chỉ đổi 1 nút Pro 5TB/2TB Tháng)",
+        description: "Dùng khi bấm nút Ultra 20TB báo lỗi: chỉ đổi duy nhất nút Pro Tháng (g1.ios.2tb.ai.m) -> com.google.gemini.2tb.ai.m.3month_ip_99p (không dùng prefix để tránh 4 nút 2TB trùng ID gây lỗi!). Cách bấm: chọn Theo tháng -> bấm nút Pro 5TB/2TB.",
         replaceAll: true,
         rules: [
-          { match: "prefix", from: SOURCE_PREFIX, to: "com.google.gemini.2tb.ai.m.3month_ip_99p", enabled: true }
-        ]
-      },
-      {
-        id: "pro-5tb-18m-12m-free",
-        title: "4. [GÓI 5TB FREE] Google AI Pro (5 TB) · 18 Tháng & 12 Tháng 0đ (eft)",
-        description: "Trong hệ thống Google One, mã g1.2tb.ai.* chính là gói Google AI Pro (5 TB). Nút 20TB & 5TB đổi sang 18 tháng 0đ (g1.2tb.ai.18months_eft), nút Pro 2TB đổi sang 12 tháng 0đ (g1.2tb.ai.12months_eft).",
-        replaceAll: true,
-        rules: [
-          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.2tb.ai.18months_eft", enabled: true },
-          { match: "prefix", from: "g1.ios.5tb.", to: "g1.2tb.ai.18months_eft", enabled: true },
-          { match: "prefix", from: SOURCE_PREFIX, to: "g1.2tb.ai.12months_eft", enabled: true }
-        ]
-      },
-      {
-        id: "pro-5tb-6m-3m-free",
-        title: "5. [GÓI 5TB FREE] Google AI Pro (5 TB) · 6 Tháng & 3 Tháng 0đ (eft)",
-        description: "Nút 20TB & 5TB đổi sang 6 tháng 0đ (g1.2tb.ai.6months_eft), nút Pro 2TB đổi sang 3 tháng 0đ (g1.2tb.ai.3months_eft), nút 30TB đổi sang g1.2tb.ai.subs_variant.",
-        replaceAll: true,
-        rules: [
-          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.2tb.ai.6months_eft", enabled: true },
-          { match: "prefix", from: "g1.ios.5tb.", to: "g1.2tb.ai.6months_eft", enabled: true },
-          { match: "prefix", from: SOURCE_PREFIX, to: "g1.2tb.ai.3months_eft", enabled: true },
-          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.2tb.ai.subs_variant", enabled: true }
-        ]
-      },
-      {
-        id: "pro-5tb-ios-gemini-free",
-        title: "6. [GÓI 5TB/2TB FREE iOS] Thử loạt mã Free Trial đuôi iOS & Gemini (1M / 3M / 12M)",
-        description: "Gắn các mã Free Trial định dạng riêng của iOS: 20TB -> com.google.gemini.2tb.ai.m.1month_eft, 30TB -> com.google.gemini.2tb.ai.m.3month_eft, 5TB -> com.google.gemini.2tb.ai.m.12month_eft, 2TB -> g1.ios.2tb.ai.m.1month_eft.",
-        replaceAll: true,
-        rules: [
-          { match: "exact", from: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.1month_eft", enabled: true },
-          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "com.google.gemini.2tb.ai.m.3month_eft", enabled: true },
-          { match: "prefix", from: "g1.ios.5tb.", to: "com.google.gemini.2tb.ai.m.12month_eft", enabled: true },
-          { match: "prefix", from: SOURCE_PREFIX, to: "g1.ios.2tb.ai.m.1month_eft", enabled: true }
+          { match: "exact", from: "g1.ios.2tb.ai.m", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", enabled: true }
         ]
       },
       {
         id: "pro-12months-90p",
-        title: "7. [GÓI 5TB GIẢM 90%] Google AI Pro (5 TB) · 12 Tháng 90p ($1.99/tháng × 12)",
-        description: "Mã mặc định đã kiểm chứng của crhywun/g1-acq: đổi cả nút 2TB, 5TB và 20TB sang g1.2tb.ai.12months_ip_90p (giảm 90% suốt 12 tháng, tiêu đề gói trên hệ thống là Google AI Pro 5 TB).",
+        title: "3. [GÓI 5TB GIẢM 90%] Google AI Pro (5 TB) · 12 Tháng 90p (Chỉ đổi 1 nút Pro Tháng, không xung đột)",
+        description: "Chỉ đổi duy nhất nút Pro Tháng (g1.ios.2tb.ai.m) -> g1.2tb.ai.12months_ip_90p ($1.99/tháng × 12 tháng), tránh lỗi 4 nút 2TB dùng chung 1 mã đích. Cách bấm: chọn Theo tháng -> bấm nút Pro 5TB/2TB.",
         replaceAll: true,
         rules: [
-          { match: "prefix", from: SOURCE_PREFIX, to: "g1.2tb.ai.12months_ip_90p", enabled: true },
-          { match: "prefix", from: "g1.ios.5tb.", to: "g1.2tb.ai.12months_ip_90p", enabled: true },
-          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.2tb.ai.12months_ip_90p", enabled: true }
+          { match: "exact", from: "g1.ios.2tb.ai.m", to: "g1.2tb.ai.12months_ip_90p", enabled: true }
+        ]
+      },
+      {
+        id: "tr-ultra-legacy",
+        title: "4. [ULTRA 20TB & 30TB MÃ GỐC] g1.ios.20tb.m & g1.ios.30tb.m (Không cần ĐK .acq)",
+        description: "Bỏ đuôi .v2 và .ai.pro, gọi mã gốc 20TB (g1.ios.20tb.m - 1989.99 TRY) và 30TB (g1.ios.30tb.m - 2949.99 TRY). Mỗi nút 1 mã riêng biệt, không xung đột.",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.ios.20tb.m", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.ios.30tb.m", enabled: true }
         ]
       },
       {
         id: "ultra-75p",
-        title: "8. Ultra 20TB / 30TB · Giảm 75% 3 Tháng (75p.acq - Chỉ tài khoản đủ ĐK)",
-        description: "Mã khuyến mãi Ultra (.acq): 20TB -> g1.20tb.3months_ip_75p.acq, 30TB -> g1.ai.ultra.3months_ip_75p.acq (giảm 75%, trả 25%).",
+        title: "5. [ULTRA 20TB & 30TB GIẢM 75%] 3 Tháng 75p.acq (1-đối-1 không xung đột)",
+        description: "Xóa sạch rule 2TB gây nhiễu, chỉ đổi 20TB -> g1.20tb.3months_ip_75p.acq và 30TB -> g1.ai.ultra.3months_ip_75p.acq (giảm 75% 3 tháng đầu).",
         replaceAll: true,
         rules: [
           { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.20tb.3months_ip_75p.acq", enabled: true },
@@ -113,23 +76,97 @@ function createG1MappingConfig(store) {
         ]
       },
       {
-        id: "ultra-30tb-75p-both",
-        title: "9. Ultra 30TB 75p cho Google App (Gắn cả 2 nút 20TB & 30TB)",
-        description: "Ép cả nút 20TB lẫn 30TB sang mã g1.ai.ultra.3months_ip_75p.acq (3 tháng giảm 75%) trong Google App.",
+        id: "ultra-1m-free",
+        title: "6. [ULTRA 20TB & 30TB FREE 1 THÁNG] 1month_eft.acq (1-đối-1 không xung đột)",
+        description: "Xóa sạch rule 2TB gây nhiễu, chỉ đổi 20TB -> g1.20tb.1month_eft.acq và 30TB -> g1.ai.ultra.1month_eft.acq (1 tháng 0đ).",
         replaceAll: true,
         rules: [
-          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.ai.ultra.3months_ip_75p.acq", enabled: true },
-          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.ai.ultra.3months_ip_75p.acq", enabled: true }
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.20tb.1month_eft.acq", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.ai.ultra.1month_eft.acq", enabled: true }
         ]
       },
       {
-        id: "ultra-1m-eft",
-        title: "10. Ultra 30TB & 20TB · 1 Tháng Free Trial (1month_eft.acq)",
-        description: "Thử mã dùng thử 1 tháng 0đ cho Ultra: 20TB -> g1.ai.ultra.1month_eft.acq, 30TB -> g1.20tb.1month_eft.acq.",
+        id: "pro-5tb-free-4slots",
+        title: "7. [GÓI 5TB FREE 18M/15M/12M/6M] Mỗi nút gắn 1 mã Free Trial riêng (Không trùng ID)",
+        description: "Gắn 4 mã Free Trial 5TB vào 4 nút khác nhau để không bị trùng ID: Nút Pro Tháng (g1.ios.2tb.ai.m) -> 18 tháng 0đ; Nút Pro Năm (g1.ios.2tb.ai.a) -> 12 tháng 0đ; Nút Ultra 20TB -> 15 tháng 0đ; Nút Ultra 30TB -> 6 tháng 0đ.",
         replaceAll: true,
         rules: [
-          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.ai.ultra.1month_eft.acq", enabled: true },
-          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.20tb.1month_eft.acq", enabled: true }
+          { match: "exact", from: "g1.ios.2tb.ai.m", to: "g1.2tb.ai.18months_eft", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.ai.a", to: "g1.2tb.ai.12months_eft", enabled: true },
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.2tb.ai.15months_eft", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.2tb.ai.6months_eft", enabled: true }
+        ]
+      },
+      {
+        id: "probe-batch-1-gemini",
+        title: "8. [DÒ 10 NÚT - GÓI A] 10 Mã com.google.gemini.* (99p / 90p / Free Trial 1M-12M)",
+        description: "Gắn 10 mã com.google.gemini.* vào 10 nút trên trang (20TB, 30TB, Pro Tháng/Năm, 2TB Tháng/Năm, 400GB, 100GB). Áp dụng xong mở trang nâng cấp bấm thử từng nút: nút nào bật bảng thanh toán Apple là mã đó mua được trên iOS!",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "com.google.gemini.2tb.ai.m.1month_ip_99p", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.ai.m", to: "com.google.gemini.2tb.ai.m.12month_ip_90p", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.ai.a", to: "com.google.gemini.2tb.ai.m.1month_eft", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.m", to: "com.google.gemini.2tb.ai.m.3month_eft", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.a", to: "com.google.gemini.2tb.ai.m.12month_eft", enabled: true },
+          { match: "exact", from: "g1.ios.helium.m", to: "com.google.gemini.2tb.ai.m.3month_ip_90p", enabled: true },
+          { match: "exact", from: "g1.ios.helium.a", to: "com.google.gemini.2tb.ai.m.3month_ip_75p", enabled: true },
+          { match: "exact", from: "g1.ios.100gb.m", to: "com.google.gemini.2tb.ai.m", enabled: true },
+          { match: "exact", from: "g1.ios.100gb.a", to: "com.google.gemini.2tb.ai.a", enabled: true }
+        ]
+      },
+      {
+        id: "probe-batch-2-g1ios",
+        title: "9. [DÒ 10 NÚT - GÓI B] 10 Mã g1.ios.* & com.google.one.* (99p / 90p / Free Trial / Giá cũ)",
+        description: "Gắn 10 mã g1.ios.* và com.google.one.* vào 10 nút trên trang. Áp dụng xong mở trang nâng cấp bấm lần lượt từng nút xem nút nào hiện bảng thanh toán Apple!",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.ios.20tb.m", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.ios.30tb.m", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.ai.m", to: "g1.ios.2tb.ai.m.3month_ip_99p", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.ai.a", to: "g1.ios.2tb.ai.m.12month_ip_90p", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.m", to: "com.google.one.2tb.ai.m.3month_ip_99p", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.a", to: "g1.ios.2tb.y", enabled: true },
+          { match: "exact", from: "g1.ios.helium.m", to: "g1.ios.2tb.ai.m.1month_eft", enabled: true },
+          { match: "exact", from: "g1.ios.helium.a", to: "g1.ios.2tb.ai.m.3month_eft", enabled: true },
+          { match: "exact", from: "g1.ios.100gb.m", to: "g1.2tb.ai.3months_ip_90p.acq", enabled: true },
+          { match: "exact", from: "g1.ios.100gb.a", to: "g1.2tb.ai.12months_ip_75p", enabled: true }
+        ]
+      },
+      {
+        id: "probe-batch-3-ultra-gemini",
+        title: "10. [DÒ 10 NÚT - GÓI C] Chuyên dò Ultra 20TB/30TB họ com.google.gemini.* (99p / 90p / Free)",
+        description: "Gắn 10 mã ứng viên Ultra 20TB/30TB thuộc họ com.google.gemini.* vào 10 nút trên trang để dò mã Ultra ẩn trên iOS.",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "com.google.gemini.20tb.m.3month_ip_99p", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "com.google.gemini.30tb.ai.pro.m.3month_ip_99p", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.ai.m", to: "com.google.gemini.20tb.ai.m.3month_ip_99p", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.ai.a", to: "com.google.gemini.30tb.ai.m.3month_ip_99p", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.m", to: "com.google.gemini.ai.ultra.m.3month_ip_99p", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.a", to: "com.google.gemini.20tb.m.1month_eft", enabled: true },
+          { match: "exact", from: "g1.ios.helium.m", to: "com.google.gemini.30tb.ai.pro.m.1month_eft", enabled: true },
+          { match: "exact", from: "g1.ios.helium.a", to: "com.google.gemini.20tb.m.3month_ip_90p", enabled: true },
+          { match: "exact", from: "g1.ios.100gb.m", to: "com.google.gemini.30tb.ai.pro.m.3month_ip_90p", enabled: true },
+          { match: "exact", from: "g1.ios.100gb.a", to: "com.google.gemini.ai.ultra.m.1month_eft", enabled: true }
+        ]
+      },
+      {
+        id: "probe-batch-4-ultra-g1",
+        title: "11. [DÒ 10 NÚT - GÓI D] Chuyên dò Ultra 20TB/30TB họ g1.* & g1.ios.* (Free / 75p / 80p / 90p)",
+        description: "Gắn 10 mã ứng viên Ultra 20TB/30TB thuộc họ g1.* và g1.ios.* vào 10 nút trên trang để dò nút nào bật bảng thanh toán Apple.",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.20tb.1month_eft.acq", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.ai.ultra.1month_eft.acq", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.ai.m", to: "g1.20tb.3months_ip_75p.acq", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.ai.a", to: "g1.ai.ultra.3months_ip_75p.acq", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.m", to: "g1.20tb.3months_ip_80p", enabled: true },
+          { match: "exact", from: "g1.ios.2tb.a", to: "g1.20tb.3months_ip_90p.acq", enabled: true },
+          { match: "exact", from: "g1.ios.helium.m", to: "g1.ai.ultra.3months_ip_90p.acq", enabled: true },
+          { match: "exact", from: "g1.ios.helium.a", to: "g1.ios.20tb.m.3month_ip_99p", enabled: true },
+          { match: "exact", from: "g1.ios.100gb.m", to: "g1.ios.20tb.m", enabled: true },
+          { match: "exact", from: "g1.ios.100gb.a", to: "g1.ios.30tb.m", enabled: true }
         ]
       }
     ];
@@ -405,7 +442,7 @@ function createG1MappingConfig(store) {
     console.log("[g1-acq] SKU collection unavailable");
   }
 
-  if (!/^https:\/\/one\.google\.com\/ai\?/.test(url)) {
+  if (!/^https:\/\/one\.google\.com\/(?:u\/\d+\/)?(?:ai|plans|subscribe|upsell|about\/plans)(?:[/?#]|$)/.test(url)) {
     $done({});
     return;
   }

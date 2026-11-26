@@ -8,7 +8,7 @@ function createG1MappingConfig(store) {
 
   var KEY = "g1.sku.mappings.v1";
   var LIMIT = 30;
-  var DEFAULT_REVISION = "defaults-75p-v1";
+  var DEFAULT_REVISION = "defaults-v96-99p";
   var SOURCE_PREFIX = "g1.ios.2tb.";
   var READ_ERROR = "Bộ nhớ cấu hình cục bộ chưa sẵn sàng, phản hồi lần này giữ nguyên.";
   var CONFIG_ERROR = "Định dạng cấu hình ánh xạ lỗi, tạm dừng ghi đè; vui lòng khôi phục mặc định rồi sửa lại.";
@@ -19,9 +19,7 @@ function createG1MappingConfig(store) {
 
   function defaults() {
     return [
-      { id: "default-2tb", match: "exact", from: "g1.ios.2tb.ai.m", to: "g1.2tb.ai.12months_ip_90p", enabled: true },
-      { id: "default-20tb", match: "exact", from: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", enabled: true },
-      { id: "default-30tb", match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.ai.ultra.3months_ip_75p.acq", enabled: true }
+      { id: "default-20tb", match: "exact", from: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", enabled: true }
     ];
   }
 
@@ -29,8 +27,8 @@ function createG1MappingConfig(store) {
     return [
       {
         id: "pro-1yuan-20tb",
-        title: "1. [ĐÃ TEST THÀNH CÔNG] Mở Pro Giảm 99% 3 Tháng Đầu (Chỉ đổi 1 nút Ultra 20TB)",
-        description: "Xóa sạch các quy tắc khác, chỉ đổi duy nhất nút Ultra 20TB (g1.ios.20tb.m.v2) -> com.google.gemini.2tb.ai.m.3month_ip_99p (giảm 99% 3 tháng đầu). Cách bấm: vào trang nâng cấp bấm nút Ultra 20TB.",
+        title: "✅ 1. [100% SỐNG TRÊN iOS · MẶC ĐỊNH] Mở Google AI Pro (5 TB) Giảm 99% (Bấm nút Ultra 20TB)",
+        description: "【26/11/2026 Đã test lên bảng Apple Pay】Chỉ đổi duy nhất nút Ultra 20TB (g1.ios.20tb.m.v2) -> com.google.gemini.2tb.ai.m.3month_ip_99p. Bấm nút Ultra 20TB sẽ hiện bảng Apple Pay gói Google AI Pro (5 TB) giảm 99% 3 tháng đầu (Mỹ $0.29/tháng, Ấn ₹10/tháng, Indo Rp 3,000/tháng).",
         replaceAll: true,
         rules: [
           { match: "exact", from: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", enabled: true }
@@ -38,26 +36,17 @@ function createG1MappingConfig(store) {
       },
       {
         id: "pro-1yuan-2tb",
-        title: "2. [ĐÃ TEST THÀNH CÔNG] Mở Pro Giảm 99% 3 Tháng Đầu (Chỉ đổi 1 nút Pro 5TB/2TB Tháng)",
-        description: "Dùng khi bấm nút Ultra 20TB báo lỗi: chỉ đổi duy nhất nút Pro Tháng (g1.ios.2tb.ai.m) -> com.google.gemini.2tb.ai.m.3month_ip_99p (không dùng prefix để tránh 4 nút 2TB trùng ID gây lỗi!). Cách bấm: chọn Theo tháng -> bấm nút Pro 5TB/2TB.",
+        title: "✅ 2. [100% SỐNG TRÊN iOS · NÚT DỰ PHÒNG] Mở Google AI Pro (5 TB) Giảm 99% (Bấm nút Pro 5TB Tháng)",
+        description: "【26/11/2026 Đã test lên bảng Apple Pay】Chỉ đổi duy nhất nút Pro Tháng (g1.ios.2tb.ai.m) -> com.google.gemini.2tb.ai.m.3month_ip_99p. Vào trang nâng cấp chọn Theo tháng -> bấm nút Pro 5TB.",
         replaceAll: true,
         rules: [
           { match: "exact", from: "g1.ios.2tb.ai.m", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", enabled: true }
         ]
       },
       {
-        id: "pro-12months-90p",
-        title: "3. [GÓI 5TB GIẢM 90%] Google AI Pro (5 TB) · 12 Tháng 90p (Chỉ đổi 1 nút Pro Tháng, không xung đột)",
-        description: "Chỉ đổi duy nhất nút Pro Tháng (g1.ios.2tb.ai.m) -> g1.2tb.ai.12months_ip_90p ($1.99/tháng × 12 tháng), tránh lỗi 4 nút 2TB dùng chung 1 mã đích. Cách bấm: chọn Theo tháng -> bấm nút Pro 5TB/2TB.",
-        replaceAll: true,
-        rules: [
-          { match: "exact", from: "g1.ios.2tb.ai.m", to: "g1.2tb.ai.12months_ip_90p", enabled: true }
-        ]
-      },
-      {
         id: "tr-ultra-legacy",
-        title: "4. [ULTRA 20TB & 30TB MÃ GỐC] g1.ios.20tb.m & g1.ios.30tb.m (Không cần ĐK .acq)",
-        description: "Bỏ đuôi .v2 và .ai.pro, gọi mã gốc 20TB (g1.ios.20tb.m - 1989.99 TRY) và 30TB (g1.ios.30tb.m - 2949.99 TRY). Mỗi nút 1 mã riêng biệt, không xung đột.",
+        title: "✅ 3. [100% SỐNG TRÊN iOS · ULTRA DUY NHẤT] Ultra 20TB & 30TB Giá Cũ (g1.ios.20tb.m / 30tb.m)",
+        description: "【26/11/2026 Đường duy nhất mở Ultra 20TB/30TB giá rẻ trên iOS】Bỏ đuôi .v2 và .ai.pro, gọi mã gốc 20TB (g1.ios.20tb.m - 1989.99 TRY) và 30TB (g1.ios.30tb.m - 2949.99 TRY trên Apple ID Thổ Nhĩ Kỳ).",
         replaceAll: true,
         rules: [
           { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.ios.20tb.m", enabled: true },
@@ -65,9 +54,18 @@ function createG1MappingConfig(store) {
         ]
       },
       {
+        id: "pro-12months-90p",
+        title: "⚠️ 4. [LÊN BẢNG GIÁ NHƯNG HẾT KM 90%] Google AI Pro (5 TB) · 12months_ip_90p (Về giá gốc $19.99)",
+        description: "【26/11/2026】Mã g1.2tb.ai.12months_ip_90p vẫn hiện bảng Apple Pay nhưng Apple Store đã tắt thuộc tính giảm 90% ($1.99), bảng giá hiện nguyên giá gốc $19.99/tháng.",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "g1.ios.2tb.ai.m", to: "g1.2tb.ai.12months_ip_90p", enabled: true }
+        ]
+      },
+      {
         id: "ultra-75p",
-        title: "5. [ULTRA 20TB & 30TB GIẢM 75%] 3 Tháng 75p.acq (1-đối-1 không xung đột)",
-        description: "Xóa sạch rule 2TB gây nhiễu, chỉ đổi 20TB -> g1.20tb.3months_ip_75p.acq và 30TB -> g1.ai.ultra.3months_ip_75p.acq (giảm 75% 3 tháng đầu).",
+        title: "❌ 5. [ĐÃ BỊ GỠ TRÊN iOS] Ultra 20TB & 30TB · 3 Tháng 75p.acq (Báo Giao dịch chưa hoàn tất)",
+        description: "【26/11/2026 Đã khóa trên iOS】g1.20tb.3months_ip_75p.acq và g1.ai.ultra.3months_ip_75p.acq đã bị gỡ khỏi iOS App Store.",
         replaceAll: true,
         rules: [
           { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.20tb.3months_ip_75p.acq", enabled: true },
@@ -76,8 +74,8 @@ function createG1MappingConfig(store) {
       },
       {
         id: "ultra-1m-free",
-        title: "6. [ULTRA 20TB & 30TB FREE 1 THÁNG] 1month_eft.acq (1-đối-1 không xung đột)",
-        description: "Xóa sạch rule 2TB gây nhiễu, chỉ đổi 20TB -> g1.20tb.1month_eft.acq và 30TB -> g1.ai.ultra.1month_eft.acq (1 tháng 0đ).",
+        title: "❌ 6. [ĐÃ BỊ GỠ TRÊN iOS] Ultra 20TB & 30TB · Free 1 Tháng 1month_eft.acq (Báo Giao dịch chưa hoàn tất)",
+        description: "【26/11/2026 Đã khóa trên iOS】g1.20tb.1month_eft.acq và g1.ai.ultra.1month_eft.acq đã bị gỡ khỏi iOS App Store.",
         replaceAll: true,
         rules: [
           { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.20tb.1month_eft.acq", enabled: true },
@@ -86,8 +84,8 @@ function createG1MappingConfig(store) {
       },
       {
         id: "pro-5tb-free-4slots",
-        title: "7. [GÓI 5TB FREE 18M/15M/12M/6M] Mỗi nút gắn 1 mã Free Trial riêng (Không trùng ID)",
-        description: "Gắn 4 mã Free Trial 5TB vào 4 nút khác nhau để không bị trùng ID: Nút Pro Tháng (g1.ios.2tb.ai.m) -> 18 tháng 0đ; Nút Pro Năm (g1.ios.2tb.ai.a) -> 12 tháng 0đ; Nút Ultra 20TB -> 15 tháng 0đ; Nút Ultra 30TB -> 6 tháng 0đ.",
+        title: "🤖 7. [CHỈ DÀNH CHO ANDROID PLAY] Gói 5TB Free 18M/15M/12M/6M (g1.2tb.ai.*_eft)",
+        description: "Lưu ý v9.6.0: Các mã g1.2tb.ai.18months_eft / 12months_eft / 6months_eft là mã độc quyền của Android Google Play BillingClient (trên iOS StoreKit không tồn tại nên bấm trên iPhone sẽ báo Giao dịch chưa hoàn tất; phải mở trên Android/MuMu).",
         replaceAll: true,
         rules: [
           { match: "exact", from: "g1.ios.2tb.ai.m", to: "g1.2tb.ai.18months_eft", enabled: true },

@@ -10,6 +10,7 @@ function createG1MappingConfig(store) {
   var LIMIT = 30;
   var DEFAULT_REVISION = "defaults-v96-99p";
   var SOURCE_PREFIX = "g1.ios.2tb.";
+  var PRO_TARGET = "com.google.gemini.2tb.ai.m.3month_ip_99p";
   var READ_ERROR = "Bộ nhớ cấu hình cục bộ chưa sẵn sàng, phản hồi lần này giữ nguyên.";
   var CONFIG_ERROR = "Định dạng cấu hình ánh xạ lỗi, tạm dừng ghi đè; vui lòng khôi phục mặc định rồi sửa lại.";
   var WRITE_ERROR = "Kết quả lưu chưa qua kiểm tra đọc lại, vui lòng tải lại trang để xem cấu hình hiện tại.";
@@ -36,11 +37,12 @@ function createG1MappingConfig(store) {
       },
       {
         id: "pro-1yuan-2tb",
-        title: "✅ 2. [100% SỐNG TRÊN iOS · NÚT DỰ PHÒNG] Mở Google AI Pro (5 TB) Giảm 99% (Bấm nút Pro 5TB Tháng)",
-        description: "【26/11/2026 Đã test lên bảng Apple Pay】Chỉ đổi duy nhất nút Pro Tháng (g1.ios.2tb.ai.m) -> com.google.gemini.2tb.ai.m.3month_ip_99p. Vào trang nâng cấp chọn Theo tháng -> bấm nút Pro 5TB.",
+        title: "✅ 2. [100% SỐNG TRÊN iOS · CHUẨN v7.13.0] Mở Google AI Pro (5 TB) Giảm 99% (2 Nguồn Pro Tháng)",
+        description: "【Cập nhật v7.13.0】Khớp chính xác 2 mã Pro Tháng (g1.ios.2tb.ai.m và mã ứng viên mới g1.ios.ai.2tb.m.ip_3mo_75p.acq) -> com.google.gemini.2tb.ai.m.3month_ip_99p. Tránh đè trùng 4 nút 2TB và bắt được cả tài khoản trả mã AI 75p.acq mới.",
         replaceAll: true,
         rules: [
-          { match: "exact", from: "g1.ios.2tb.ai.m", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", enabled: true }
+          { match: "exact", from: "g1.ios.2tb.ai.m", to: PRO_TARGET, enabled: true },
+          { match: "exact", from: "g1.ios.ai.2tb.m.ip_3mo_75p.acq", to: PRO_TARGET, enabled: true }
         ]
       },
       {
@@ -167,6 +169,12 @@ function createG1MappingConfig(store) {
         ]
       }
     ];
+  }
+
+  function isLegacyProRule(rule) {
+    return !!rule && rule.to === PRO_TARGET &&
+      ((rule.match === "exact" && rule.from === "g1.ios.20tb.m.v2") ||
+       (rule.match === "prefix" && rule.from === SOURCE_PREFIX));
   }
 
   function validSku(value) {
@@ -398,6 +406,7 @@ function createG1MappingConfig(store) {
     limit: LIMIT,
     defaults: defaults,
     presets: presets,
+    isLegacyProRule: isLegacyProRule,
     validSku: validSku,
     validateRules: validateRules,
     newId: newId,
@@ -410,7 +419,7 @@ function createG1MappingConfig(store) {
 // END GENERATED MAPPING CONFIG
 
 (function () {
-  var VERSION = "g1-acq-v7.11-mappings";
+  var VERSION = "g1-acq-v7.13-mappings";
   var SOURCE_PREFIX = "g1.ios.2tb.";
   var TEST_KEY = "g1.pro.annual.test.v1";
   var SCAN_KEY = "g1.sku.scan.v1";

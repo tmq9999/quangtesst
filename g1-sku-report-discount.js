@@ -4,8 +4,8 @@
 
 (function () {
   var ROOT = "https://one.google.com/g1-sku-report";
-  var VERSION = "v7.11.0";
-  var COLLECTOR_VERSION = "g1-acq-v7.11-mappings";
+  var VERSION = "v7.13.0";
+  var COLLECTOR_VERSION = "g1-acq-v7.13-mappings";
   var MODE_NAMES = {
     discount75: "Ultra 3 tháng 75p (Giảm 75%)",
     custom: "Ánh xạ tùy chỉnh (Đã chọn mẫu / sửa tay)",
@@ -26,6 +26,7 @@ function createG1MappingConfig(store) {
   var LIMIT = 30;
   var DEFAULT_REVISION = "defaults-v96-99p";
   var SOURCE_PREFIX = "g1.ios.2tb.";
+  var PRO_TARGET = "com.google.gemini.2tb.ai.m.3month_ip_99p";
   var READ_ERROR = "Bộ nhớ cấu hình cục bộ chưa sẵn sàng, phản hồi lần này giữ nguyên.";
   var CONFIG_ERROR = "Định dạng cấu hình ánh xạ lỗi, tạm dừng ghi đè; vui lòng khôi phục mặc định rồi sửa lại.";
   var WRITE_ERROR = "Kết quả lưu chưa qua kiểm tra đọc lại, vui lòng tải lại trang để xem cấu hình hiện tại.";
@@ -52,11 +53,12 @@ function createG1MappingConfig(store) {
       },
       {
         id: "pro-1yuan-2tb",
-        title: "✅ 2. [100% SỐNG TRÊN iOS · NÚT DỰ PHÒNG] Mở Google AI Pro (5 TB) Giảm 99% (Bấm nút Pro 5TB Tháng)",
-        description: "【26/11/2026 Đã test lên bảng Apple Pay】Chỉ đổi duy nhất nút Pro Tháng (g1.ios.2tb.ai.m) -> com.google.gemini.2tb.ai.m.3month_ip_99p. Vào trang nâng cấp chọn Theo tháng -> bấm nút Pro 5TB.",
+        title: "✅ 2. [100% SỐNG TRÊN iOS · CHUẨN v7.13.0] Mở Google AI Pro (5 TB) Giảm 99% (2 Nguồn Pro Tháng)",
+        description: "【Cập nhật v7.13.0】Khớp chính xác 2 mã Pro Tháng (g1.ios.2tb.ai.m và mã ứng viên mới g1.ios.ai.2tb.m.ip_3mo_75p.acq) -> com.google.gemini.2tb.ai.m.3month_ip_99p. Tránh đè trùng 4 nút 2TB và bắt được cả tài khoản trả mã AI 75p.acq mới.",
         replaceAll: true,
         rules: [
-          { match: "exact", from: "g1.ios.2tb.ai.m", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", enabled: true }
+          { match: "exact", from: "g1.ios.2tb.ai.m", to: PRO_TARGET, enabled: true },
+          { match: "exact", from: "g1.ios.ai.2tb.m.ip_3mo_75p.acq", to: PRO_TARGET, enabled: true }
         ]
       },
       {
@@ -183,6 +185,12 @@ function createG1MappingConfig(store) {
         ]
       }
     ];
+  }
+
+  function isLegacyProRule(rule) {
+    return !!rule && rule.to === PRO_TARGET &&
+      ((rule.match === "exact" && rule.from === "g1.ios.20tb.m.v2") ||
+       (rule.match === "prefix" && rule.from === SOURCE_PREFIX));
   }
 
   function validSku(value) {
@@ -414,6 +422,7 @@ function createG1MappingConfig(store) {
     limit: LIMIT,
     defaults: defaults,
     presets: presets,
+    isLegacyProRule: isLegacyProRule,
     validSku: validSku,
     validateRules: validateRules,
     newId: newId,
@@ -674,6 +683,10 @@ function createG1MappingConfig(store) {
     recordedTarget = LEGACY_TARGET;
   }
   var matchedFrom = rows(testRaw.matchedFrom, false, recordedTarget);
+  // Template counts require an explicitly recorded target, not a legacy inference.
+  var executedRows = rows(testRaw.matchedFrom, false, "").filter(function (row) {
+    return engine.validSku(row.id) && engine.validSku(row.to);
+  });
   if (!recordedTarget && !Object.prototype.hasOwnProperty.call(testRaw, "mappingRevision")) {
     matchedFrom.some(function (row) {
       if (row.id.indexOf("g1.ios.2tb.") === 0 && row.to) {
@@ -801,9 +814,32 @@ function createG1MappingConfig(store) {
   function revisionInput() {
     return "<input type=hidden name=revision value=\"" + escape(config.revision) + "\">";
   }
+  function presetExecution(preset, matches) {
+    if (!validConfig) return "<p class=note>Cấu hình hiện tại chưa sẵn sàng, tạm chưa thống kê lượt khớp mẫu.</p>";
+    if (!matches) return "<p class=note>Quy tắc hiện tại chưa áp dụng mẫu này.</p>";
+    if (!applied) return "<p class=note>Đang chờ phản hồi /ai mới với cấu hình hiện tại.</p>";
+    var counts = preset.rules.map(function () { return 0; });
+    var total = 0;
+    executedRows.forEach(function (row) {
+      var matched = false;
+      preset.rules.forEach(function (rule, index) {
+        var sourceMatches = rule.match === "exact" ? row.id === rule.from :
+          row.id.length > rule.from.length && row.id.indexOf(rule.from) === 0;
+        if (sourceMatches && row.to === rule.to) {
+          counts[index] += row.count;
+          matched = true;
+        }
+      });
+      if (matched) total += row.count;
+    });
+    return "<div class=preset-execution><p class=note>Phản hồi gần nhất: Mẫu này khớp " + total + " lần.</p>" +
+      preset.rules.map(function (rule, index) {
+        return "<p class=note><code>" + escape(rule.from) + "</code>: " + counts[index] + " lần</p>";
+      }).join("") + "</div>";
+  }
   function presetTemplates() {
-    return "<section id=mapping-presets><h2>Mẫu Ánh Xạ Có Sẵn (Chọn Bộ Test Ultra 1 Chạm)</h2>" +
-      "<p>Bấm <strong>“Áp dụng mẫu”</strong> để lưu ngay: tự động cập nhật và bật quy tắc cho SKU gốc tương ứng, giữ nguyên các quy tắc khác.</p>" +
+    return "<section id=mapping-presets><h2>Mẫu Ánh Xạ Có Sẵn (Chọn Bộ Test Ultra 1 Chạm · v7.13.0)</h2>" +
+      "<p>Bấm <strong>“Áp dụng mẫu”</strong> để lưu ngay: tự động cập nhật và bật quy tắc cho SKU gốc tương ứng, đồng thời thống kê số lần khớp của từng nguồn ngay trên thẻ mẫu.</p>" +
       "<p class=note>Sau khi bấm Áp dụng mẫu, hãy mở lại trang gói trong Google App / Gemini để nạp SKU mới.</p>" +
       "<div class=preset-grid>" + presetCatalog.map(function (preset) {
         var matches = validConfig && preset.rules.every(function (target) {
@@ -819,7 +855,7 @@ function createG1MappingConfig(store) {
           (!writable || !validConfig ? " disabled" : "") + "><legend>" + escape(preset.title) + "</legend>" +
           revisionInput() + "<input type=hidden name=preset value=\"" + escape(preset.id) + "\">" +
           "<p class=note>" + escape(preset.description) + "</p>" + pairs +
-          (matches ? "<p class=preset-state>Đang áp dụng bộ này</p>" : "") +
+          (matches ? "<p class=preset-state>Đang áp dụng bộ này</p>" : "") + presetExecution(preset, matches) +
           "<button class=primary type=submit name=action value=preset>Áp dụng mẫu</button></fieldset></form>";
       }).join("") + "</div></section>";
   }

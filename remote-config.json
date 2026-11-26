@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
-  "revision": "pc-sync-0000000000000000000000000000000000000001",
-  "updatedAt": "2026-11-26T15:58:00.000Z",
-  "activePresetId": "pro-1yuan-20tb",
+  "revision": "01fc0ddc5aaf486ec6fb36d547859f5bdb442908056db3c0",
+  "updatedAt": "2026-11-26T16:07:17.324Z",
+  "activePresetId": "pro-12months-90p",
   "customized": true,
   "rules": [
     {
-      "id": "rule-default20tb",
+      "id": "rule-218f4c5b86ab",
       "match": "exact",
-      "from": "g1.ios.20tb.m.v2",
-      "to": "com.google.gemini.2tb.ai.m.3month_ip_99p",
+      "from": "g1.ios.2tb.ai.m",
+      "to": "g1.2tb.ai.12months_ip_90p",
       "enabled": true
     }
   ]

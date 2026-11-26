@@ -71,9 +71,55 @@ function createG1MappingConfig(store) {
         ]
       },
       {
+        id: "pro-5tb-18m-12m-free",
+        title: "4. [GÓI 5TB FREE] Google AI Pro (5 TB) · 18 Tháng & 12 Tháng 0đ (eft)",
+        description: "Trong hệ thống Google One, mã g1.2tb.ai.* chính là gói Google AI Pro (5 TB). Nút 20TB & 5TB đổi sang 18 tháng 0đ (g1.2tb.ai.18months_eft), nút Pro 2TB đổi sang 12 tháng 0đ (g1.2tb.ai.12months_eft).",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.2tb.ai.18months_eft", enabled: true },
+          { match: "prefix", from: "g1.ios.5tb.", to: "g1.2tb.ai.18months_eft", enabled: true },
+          { match: "prefix", from: SOURCE_PREFIX, to: "g1.2tb.ai.12months_eft", enabled: true }
+        ]
+      },
+      {
+        id: "pro-5tb-6m-3m-free",
+        title: "5. [GÓI 5TB FREE] Google AI Pro (5 TB) · 6 Tháng & 3 Tháng 0đ (eft)",
+        description: "Nút 20TB & 5TB đổi sang 6 tháng 0đ (g1.2tb.ai.6months_eft), nút Pro 2TB đổi sang 3 tháng 0đ (g1.2tb.ai.3months_eft), nút 30TB đổi sang g1.2tb.ai.subs_variant.",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.2tb.ai.6months_eft", enabled: true },
+          { match: "prefix", from: "g1.ios.5tb.", to: "g1.2tb.ai.6months_eft", enabled: true },
+          { match: "prefix", from: SOURCE_PREFIX, to: "g1.2tb.ai.3months_eft", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.2tb.ai.subs_variant", enabled: true }
+        ]
+      },
+      {
+        id: "pro-5tb-ios-gemini-free",
+        title: "6. [GÓI 5TB/2TB FREE iOS] Thử loạt mã Free Trial đuôi iOS & Gemini (1M / 3M / 12M)",
+        description: "Gắn các mã Free Trial định dạng riêng của iOS: 20TB -> com.google.gemini.2tb.ai.m.1month_eft, 30TB -> com.google.gemini.2tb.ai.m.3month_eft, 5TB -> com.google.gemini.2tb.ai.m.12month_eft, 2TB -> g1.ios.2tb.ai.m.1month_eft.",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.1month_eft", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "com.google.gemini.2tb.ai.m.3month_eft", enabled: true },
+          { match: "prefix", from: "g1.ios.5tb.", to: "com.google.gemini.2tb.ai.m.12month_eft", enabled: true },
+          { match: "prefix", from: SOURCE_PREFIX, to: "g1.ios.2tb.ai.m.1month_eft", enabled: true }
+        ]
+      },
+      {
+        id: "pro-12months-90p",
+        title: "7. [GÓI 5TB GIẢM 90%] Google AI Pro (5 TB) · 12 Tháng 90p ($1.99/tháng × 12)",
+        description: "Mã mặc định đã kiểm chứng của crhywun/g1-acq: đổi cả nút 2TB, 5TB và 20TB sang g1.2tb.ai.12months_ip_90p (giảm 90% suốt 12 tháng, tiêu đề gói trên hệ thống là Google AI Pro 5 TB).",
+        replaceAll: true,
+        rules: [
+          { match: "prefix", from: SOURCE_PREFIX, to: "g1.2tb.ai.12months_ip_90p", enabled: true },
+          { match: "prefix", from: "g1.ios.5tb.", to: "g1.2tb.ai.12months_ip_90p", enabled: true },
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.2tb.ai.12months_ip_90p", enabled: true }
+        ]
+      },
+      {
         id: "ultra-75p",
-        title: "4. Ultra 20TB / 30TB · Giảm 75% 3 Tháng (75p.acq - Chỉ tài khoản đủ ĐK)",
-        description: "Mã khuyến mãi Ultra duy nhất còn mở cho tài khoản đủ điều kiện (.acq): 20TB -> g1.20tb.3months_ip_75p.acq, 30TB -> g1.ai.ultra.3months_ip_75p.acq (giảm 75%, trả 25%).",
+        title: "8. Ultra 20TB / 30TB · Giảm 75% 3 Tháng (75p.acq - Chỉ tài khoản đủ ĐK)",
+        description: "Mã khuyến mãi Ultra (.acq): 20TB -> g1.20tb.3months_ip_75p.acq, 30TB -> g1.ai.ultra.3months_ip_75p.acq (giảm 75%, trả 25%).",
         replaceAll: true,
         rules: [
           { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.20tb.3months_ip_75p.acq", enabled: true },
@@ -82,7 +128,7 @@ function createG1MappingConfig(store) {
       },
       {
         id: "ultra-30tb-75p-both",
-        title: "5. Ultra 30TB 75p cho Google App (Gắn cả 2 nút 20TB & 30TB)",
+        title: "9. Ultra 30TB 75p cho Google App (Gắn cả 2 nút 20TB & 30TB)",
         description: "Ép cả nút 20TB lẫn 30TB sang mã g1.ai.ultra.3months_ip_75p.acq (3 tháng giảm 75%) trong Google App.",
         replaceAll: true,
         rules: [
@@ -92,31 +138,12 @@ function createG1MappingConfig(store) {
       },
       {
         id: "ultra-1m-eft",
-        title: "6. Ultra 30TB & 20TB · 1 Tháng Free Trial (1month_eft.acq)",
-        description: "Thử mã dùng thử 1 tháng 0đ cho Ultra: 20TB -> g1.ai.ultra.1month_eft.acq, 30TB -> g1.20tb.1month_eft.acq (đa số vùng đã bị Google khóa).",
+        title: "10. Ultra 30TB & 20TB · 1 Tháng Free Trial (1month_eft.acq)",
+        description: "Thử mã dùng thử 1 tháng 0đ cho Ultra: 20TB -> g1.ai.ultra.1month_eft.acq, 30TB -> g1.20tb.1month_eft.acq.",
         replaceAll: true,
         rules: [
           { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.ai.ultra.1month_eft.acq", enabled: true },
           { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.20tb.1month_eft.acq", enabled: true }
-        ]
-      },
-      {
-        id: "pro-12months-90p",
-        title: "7. [CÒN SỐNG] 2TB / Pro · 12 Tháng 90p (Giảm 90% cả năm)",
-        description: "Đổi g1.ios.2tb.* sang g1.2tb.ai.12months_ip_90p (giảm 90% liên tục 12 tháng, $1.99/tháng).",
-        replaceAll: true,
-        rules: [
-          { match: "prefix", from: SOURCE_PREFIX, to: "g1.2tb.ai.12months_ip_90p", enabled: true }
-        ]
-      },
-      {
-        id: "pro-18m-12m-free",
-        title: "8. [CÒN SỐNG] 2TB / Pro 5TB · 18 Tháng & 12 Tháng Free Trial (0đ)",
-        description: "Nút 2TB tháng đổi sang g1.2tb.ai.18months_eft (18 tháng 0đ), các nút 2TB khác đổi sang g1.2tb.ai.12months_eft (12 tháng 0đ).",
-        replaceAll: true,
-        rules: [
-          { match: "exact", from: "g1.ios.2tb.ai.m", to: "g1.2tb.ai.18months_eft", enabled: true },
-          { match: "prefix", from: SOURCE_PREFIX, to: "g1.2tb.ai.12months_eft", enabled: true }
         ]
       }
     ];

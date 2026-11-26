@@ -10,10 +10,10 @@ function createG1MappingConfig(store) {
   var LIMIT = 30;
   var DEFAULT_REVISION = "defaults-75p-v1";
   var SOURCE_PREFIX = "g1.ios.2tb.";
-  var READ_ERROR = "本地映射存储暂未就绪，本次保持响应原样。";
-  var CONFIG_ERROR = "映射配置格式异常，当前暂停改写；请恢复默认后重新编辑。";
-  var WRITE_ERROR = "保存结果未通过回读核对，请刷新页面查看当前配置。";
-  var REVISION_ERROR = "配置已变化，本次未保存；页面已载入最新规则，请重新编辑。";
+  var READ_ERROR = "Bộ nhớ cấu hình cục bộ chưa sẵn sàng, phản hồi lần này giữ nguyên.";
+  var CONFIG_ERROR = "Định dạng cấu hình ánh xạ lỗi, tạm dừng ghi đè; vui lòng khôi phục mặc định rồi sửa lại.";
+  var WRITE_ERROR = "Kết quả lưu chưa qua kiểm tra đọc lại, vui lòng tải lại trang để xem cấu hình hiện tại.";
+  var REVISION_ERROR = "Cấu hình đã thay đổi nên chưa lưu; trang đã tải quy tắc mới nhất, vui lòng thao tác lại.";
   var RULE_FIELDS = ["id", "match", "from", "to", "enabled"];
   var RECORD_FIELDS = ["schemaVersion", "revision", "updatedAt", "customized", "rules"];
 
@@ -110,16 +110,16 @@ function createG1MappingConfig(store) {
       },
       {
         id: "pro-1yuan",
-        title: "1 元开 Pro（前三月约 1 元/月）",
-        description: "实测成功：改写后收银台前三月约 1 元/月，入口选 Ultra 5x，实际到手 Pro。周期与金额按 App Store 面板核对。",
+        title: "Mở Pro giá rẻ từ nút 20TB (3 tháng đầu giảm 99%)",
+        description: "Đổi nút 20TB sang gói Gemini Pro 2TB giảm 99% 3 tháng đầu. Chu kỳ và số tiền thực tế xem trên bảng thanh toán App Store.",
         rules: [
           { match: "exact", from: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", enabled: true }
         ]
       },
       {
         id: "pro-12months-90p",
-        title: "2TB / Pro · 12个月 90p",
-        description: "使用现有 2TB 前缀和 12个月优惠目标；商品周期按 App Store 购买面板显示。",
+        title: "2TB / Pro · 12 Tháng 90p (Giảm 90%)",
+        description: "Áp dụng tiền tố 2TB sang mục tiêu ưu đãi 12 tháng giảm 90%; chu kỳ tính phí xem trên bảng thanh toán App Store.",
         rules: [
           { match: "prefix", from: SOURCE_PREFIX, to: "g1.2tb.ai.12months_ip_90p", enabled: true }
         ]
@@ -150,7 +150,7 @@ function createG1MappingConfig(store) {
 
   function validateRules(value) {
     if (!Array.isArray(value) || value.length > LIMIT) {
-      return invalidRules("映射需要规则列表，最多保存 30 条。");
+      return invalidRules("Cần danh sách quy tắc ánh xạ, tối đa lưu 30 quy tắc.");
     }
     var rules = [];
     var ids = Object.create(null);
@@ -162,12 +162,12 @@ function createG1MappingConfig(store) {
           (rule.match !== "exact" && rule.match !== "prefix") ||
           !(rule.match === "exact" ? validSku(rule.from) : validPrefix(rule.from)) ||
           !validSku(rule.to) || typeof rule.enabled !== "boolean") {
-        return invalidRules("请填写完整 SKU；前缀需以点结尾，目标需为 g1.、com.google.one. 或 com.google.gemini. 编号。");
+        return invalidRules("Vui lòng nhập SKU đầy đủ; tiền tố phải kết thúc bằng dấu chấm (.), SKU đích phải bắt đầu bằng g1., com.google.one. hoặc com.google.gemini.");
       }
-      if (rule.from === rule.to) return invalidRules("原始 SKU 与目标 SKU 相同，请填写不同的目标。");
-      if (ids[rule.id]) return invalidRules("规则标识重复，请刷新管理页后重试。");
+      if (rule.from === rule.to) return invalidRules("SKU gốc và SKU đích trùng nhau, vui lòng nhập SKU đích khác.");
+      if (ids[rule.id]) return invalidRules("Mã định danh quy tắc bị trùng, vui lòng tải lại trang quản lý rồi thử lại.");
       var source = rule.match + ":" + rule.from;
-      if (sources[source]) return invalidRules("相同匹配方式的原始 SKU 已存在，请编辑已有规则。");
+      if (sources[source]) return invalidRules("SKU gốc với cùng kiểu khớp đã tồn tại, vui lòng sửa quy tắc hiện có.");
       ids[rule.id] = true;
       sources[source] = true;
       rules.push({ id: rule.id, match: rule.match, from: rule.from, to: rule.to, enabled: rule.enabled });
@@ -305,7 +305,7 @@ function createG1MappingConfig(store) {
       selected = preset;
       return true;
     });
-    if (!selected) return saveResult(400, "映射模板不存在，请刷新管理页后重试。", current);
+    if (!selected) return saveResult(400, "Mẫu ánh xạ không tồn tại, vui lòng tải lại trang quản lý rồi thử lại.", current);
 
     var rules = current.rules.slice();
     var ids = Object.create(null);

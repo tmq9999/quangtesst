@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "revision": "pc-sync-0000000000000000000000000000000000000001",
+  "updatedAt": "2026-11-26T15:58:00.000Z",
+  "activePresetId": "pro-1yuan-20tb",
+  "customized": true,
+  "rules": [
+    {
+      "id": "rule-default20tb",
+      "match": "exact",
+      "from": "g1.ios.20tb.m.v2",
+      "to": "com.google.gemini.2tb.ai.m.3month_ip_99p",
+      "enabled": true
+    }
+  ]
+}

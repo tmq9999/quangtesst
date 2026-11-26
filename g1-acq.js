@@ -444,65 +444,140 @@ function createG1MappingConfig(store) {
     return;
   }
 
-  var mappings = Object.create(null);
-  var hits = 0;
-  var annualHits = 0;
-  var out = body;
-
-  if (typeof body === "string" && !configError) {
-    // Resolve complete tokens once; replacement targets are never matched again.
-    out = body.replace(
-      /(^|[^A-Za-z0-9._@%-])((?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]+)(?=$|[^A-Za-z0-9._-])/g,
-      function (match, before, id) {
-        var rule = mappingEngine.resolve(id, mappingConfig);
-        if (!rule) return match;
-        var isAnnual = id.indexOf(SOURCE_PREFIX) === 0 && id.length > SOURCE_PREFIX.length;
-        if (!mappings[id]) mappings[id] = { id: id, to: rule.to, count: 0, fallback: false };
-        mappings[id].count += 1;
-        hits += 1;
-        if (isAnnual) annualHits += 1;
-        return before + rule.to;
-      }
-    );
+  var PC_LAN_API = "http://192.168.1.71:8787";
+  var GITHUB_REMOTE_CFG = "https://raw.githubusercontent.com/tmq9999/quangtesst/main/remote-config.json";
+  var doneCalled = false;
+  function finishOnce(payload) {
+    if (doneCalled) return;
+    doneCalled = true;
+    $done(payload);
   }
 
-  var sources = Object.keys(mappings).sort().map(function (id) {
-    return mappings[id];
-  });
-  var record = {
-    schemaVersion: 1,
-    version: VERSION,
-    mode: MODE,
-    updatedAt: new Date().toISOString(),
-    mappingRevision: mappingConfig.revision,
-    mappingUpdatedAt: mappingConfig.updatedAt,
-    mappingStatus: mappingConfig.status,
-    sourcePrefix: SOURCE_PREFIX,
-    target: mappingConfig.target,
-    targetOrigin: mappingConfig.targetOrigin,
-    hitCount: hits,
-    // Legacy field name: counts 2TB/Pro rewrites, not the billing interval.
-    annualHitCount: annualHits,
-    matchedFrom: sources,
-    status: configError ? "config-error" : typeof body !== "string" ? "non-text" : hits ? "rewritten" : "no-match"
-  };
-
-  try {
-    if (typeof $persistentStore !== "undefined" &&
-        typeof $persistentStore.write === "function") {
-      if (!$persistentStore.write(JSON.stringify(record), TEST_KEY)) {
-        console.log("[g1-acq] local record write failed");
+  function applyRemoteRulesIfValid(rawJson) {
+    try {
+      var parsed = JSON.parse(rawJson);
+      if (!parsed || !Array.isArray(parsed.rules)) return null;
+      var checked = mappingEngine.validateRules(parsed.rules);
+      if (!checked.ok) return null;
+      var toSave = {
+        schemaVersion: 1,
+        revision: typeof parsed.revision === "string" && /^[a-f0-9]{48}$/.test(parsed.revision) ? parsed.revision : "0123456789abcdef0123456789abcdef0123456789abcdef",
+        updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : new Date().toISOString(),
+        customized: true,
+        rules: checked.rules
+      };
+      if (typeof $persistentStore !== "undefined" && typeof $persistentStore.write === "function") {
+        $persistentStore.write(JSON.stringify(toSave), mappingEngine.key);
       }
+      return mappingEngine.read();
+    } catch (e) {
+      return null;
     }
-  } catch (error) {
-    console.log("[g1-acq] local record unavailable");
   }
 
-  console.log("[g1-acq] " + VERSION + " hits=" + hits + " annualHits=" + annualHits + " mode=" + MODE);
-  sources.forEach(function (source) {
-    console.log("[g1-acq] " + source.id + " -> " + source.to + " x" + source.count);
-  });
-  $done(hits ? { body: out } : {});
+  function executeRewriteAndFinish(activeConfig, configSource) {
+    var activeError = activeConfig.status === "invalid" || activeConfig.status === "unavailable";
+    var activeMode = activeConfig.mode;
+    var mappings = Object.create(null);
+    var hits = 0;
+    var annualHits = 0;
+    var out = body;
+
+    if (typeof body === "string" && !activeError) {
+      out = body.replace(
+        /(^|[^A-Za-z0-9._@%-])((?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]+)(?=$|[^A-Za-z0-9._-])/g,
+        function (match, before, id) {
+          var rule = mappingEngine.resolve(id, activeConfig);
+          if (!rule) return match;
+          var isAnnual = id.indexOf(SOURCE_PREFIX) === 0 && id.length > SOURCE_PREFIX.length;
+          if (!mappings[id]) mappings[id] = { id: id, to: rule.to, count: 0, fallback: false };
+          mappings[id].count += 1;
+          hits += 1;
+          if (isAnnual) annualHits += 1;
+          return before + rule.to;
+        }
+      );
+    }
+
+    var sources = Object.keys(mappings).sort().map(function (id) {
+      return mappings[id];
+    });
+    var record = {
+      schemaVersion: 1,
+      version: VERSION,
+      mode: activeMode,
+      updatedAt: new Date().toISOString(),
+      mappingRevision: activeConfig.revision,
+      mappingUpdatedAt: activeConfig.updatedAt,
+      mappingStatus: activeConfig.status,
+      sourcePrefix: SOURCE_PREFIX,
+      target: activeConfig.target,
+      targetOrigin: activeConfig.targetOrigin,
+      hitCount: hits,
+      annualHitCount: annualHits,
+      matchedFrom: sources,
+      status: activeError ? "config-error" : typeof body !== "string" ? "non-text" : hits ? "rewritten" : "no-match"
+    };
+
+    try {
+      if (typeof $persistentStore !== "undefined" &&
+          typeof $persistentStore.write === "function") {
+        $persistentStore.write(JSON.stringify(record), TEST_KEY);
+      }
+    } catch (error) {}
+
+    console.log("[g1-acq] " + VERSION + " source=" + configSource + " hits=" + hits + " mode=" + activeMode);
+    sources.forEach(function (source) {
+      console.log("[g1-acq] " + source.id + " -> " + source.to + " x" + source.count);
+    });
+
+    if (typeof $httpClient === "object" && $httpClient && typeof $httpClient.post === "function") {
+      try {
+        $httpClient.post({
+          url: PC_LAN_API + "/api/telemetry",
+          timeout: 1,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: url,
+            configSource: configSource,
+            hitCount: hits,
+            matchedFrom: sources
+          })
+        }, function () {});
+      } catch (e) {}
+    }
+
+    finishOnce(hits ? { body: out } : {});
+  }
+
+  if (typeof $httpClient === "object" && $httpClient && typeof $httpClient.get === "function") {
+    if (typeof setTimeout === "function") {
+      setTimeout(function () {
+        if (!doneCalled) executeRewriteAndFinish(mappingConfig, "timeout-local");
+      }, 2800);
+    }
+    $httpClient.get({ url: PC_LAN_API + "/api/config?t=" + Date.now(), timeout: 1 }, function (err, resp, data) {
+      if (!err && data) {
+        var lanCfg = applyRemoteRulesIfValid(data);
+        if (lanCfg) {
+          executeRewriteAndFinish(lanCfg, "pc-lan");
+          return;
+        }
+      }
+      $httpClient.get({ url: GITHUB_REMOTE_CFG + "?t=" + Date.now(), timeout: 1.5 }, function (err2, resp2, data2) {
+        if (!err2 && data2) {
+          var ghCfg = applyRemoteRulesIfValid(data2);
+          if (ghCfg) {
+            executeRewriteAndFinish(ghCfg, "pc-github");
+            return;
+          }
+        }
+        executeRewriteAndFinish(mappingConfig, "local-store");
+      });
+    });
+  } else {
+    executeRewriteAndFinish(mappingConfig, "local-store");
+  }
 
   function collectOriginalSkus(originalBody) {
     var now = new Date().toISOString();

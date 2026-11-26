@@ -1,13 +1,16 @@
-#!name=G1 ACQ SKU Quản Lý (v9.6.0 Tiếng Việt - Chuẩn Hóa Mã Sống)
-#!desc=Bản v9.6.0 Tiếng Việt: Mặc định chỉ bật 1 rule duy nhất g1.ios.20tb.m.v2 -> com.google.gemini.2tb.ai.m.3month_ip_99p (mở gói Google AI Pro 5 TB giảm 99%), kèm Ultra 20TB/30TB giá cũ. Quản lý tại https://one.google.com/g1-sku-report
+#!name=G1 ACQ SKU Quản Lý (v9.7 PC Live Control + Tiếng Việt)
+#!desc=Bản v9.7 Điều Khiển Trực Tiếp Từ Máy Tính: Mở http://localhost:8787 trên PC để đổi bộ SKU cho iPhone mà không cần mở trình duyệt trên điện thoại (đồng bộ tức thời qua LAN 192.168.1.71:8787 + GitHub Cloud).
 #!system=ios
 
 [Rule]
 AND,((PROTOCOL,UDP),(DEST-PORT,443)),REJECT-NO-DROP
+IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
+IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
+IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
 
 [Script]
-g1-acq = type=http-response,pattern=^https:\/\/one\.google\.com\/,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/g1-acq-discount.js?v=9600
-g1-sku-report = type=http-request,pattern=^https:\/\/one\.google\.com\/g1-sku-report\/?(?:\?.*)?$,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/g1-sku-report-discount.js?v=9600
+g1-acq = type=http-response,pattern=^https:\/\/one\.google\.com\/,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/g1-acq-discount.js?v=9700
+g1-sku-report = type=http-request,pattern=^https:\/\/one\.google\.com\/g1-sku-report\/?(?:\?.*)?$,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/g1-sku-report-discount.js?v=9700
 
 [MITM]
 hostname = %APPEND% one.google.com

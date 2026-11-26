@@ -1,0 +1,14 @@
+#!name=G1 ACQ SKU Quản Lý (crhywun v7.11.0 + Ultra Presets)
+#!desc=Bản gốc crhywun/g1-acq v7.11.0: Không chèn HTML vào one.google.com/ai (chống lỗi 502/WIZ). Đổi bộ SKU Ultra 20TB/30TB bằng cách mở Safari vào https://one.google.com/g1-sku-report rồi bấm 应用模板 (Áp dụng mẫu).
+#!system=ios
+
+[Rule]
+# 拦截 UDP 443，促使支持回退的 HTTP/3 请求改走 TCP。
+AND,((PROTOCOL,UDP),(DEST-PORT,443)),REJECT-NO-DROP
+
+[Script]
+g1-acq = type=http-response,pattern=^https:\/\/one\.google\.com\/,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/g1-acq.js?v=7110
+g1-sku-report = type=http-request,pattern=^https:\/\/one\.google\.com\/g1-sku-report\/?(?:\?.*)?$,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/g1-sku-report.js?v=7110
+
+[MITM]
+hostname = %APPEND% one.google.com

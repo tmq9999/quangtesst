@@ -1,281 +1,623 @@
-/**
- * quangg11.js — Google One AI Ultra (20TB / 30TB) cho Shadowrocket (v10)
- * Repo: https://github.com/tmq9999/quangtesst
- *
- * Nguyên tắc chống xoay vòng / chống lỗi "Something went wrong":
- *   1. Trên trang one.google.com/ai? : TUYỆT ĐỐI KHÔNG chèn HTML/JS vào trang của Google,
- *      chỉ thay đúng chuỗi SKU như bản v6 và trả $done({}) nếu không khớp (không đụng batchexecute).
- *   2. Đổi bộ mã SKU độc lập trên Safari tại: https://one.google.com/g1-sku-report
- */
+/* Generated from g1-acq.js by tools/build-variants.cjs. */
+/* Google One combined 2TB / 20TB / 30TB mappings for Shadowrocket. */
 "use strict";
 
-var STORE_U20 = "quang.ultra.u20.v10";
-var STORE_U30 = "quang.ultra.u30.v10";
-var STORE_SEEN = "quang.ultra.seen.v10";
+// BEGIN GENERATED MAPPING CONFIG
+/* Shared local mapping configuration for the runtime and report controller. */
+function createG1MappingConfig(store) {
+  "use strict";
 
-var ULTRA_PRESETS = [
-  {
-    id: "p_75p",
-    name: "Mặc định: Ultra 20TB & 30TB · 3 Tháng Giảm 75% (crhywun v7.8+)",
-    u20: "g1.20tb.3months_ip_75p.acq",
-    u30: "g1.ai.ultra.3months_ip_75p.acq"
-  },
-  {
-    id: "p12",
-    name: "Bộ Trial 1M: Ultra 20TB 1 Tháng $0 + Ultra 30TB 1 Tháng $0",
-    u20: "g1.20tb.1month_eft.acq",
-    u30: "g1.ai.ultra.1month_eft.acq"
-  },
-  {
-    id: "p11",
-    name: "Bộ 90p: Ultra 20TB & 30TB · 3 Tháng Giảm 90%",
-    u20: "g1.20tb.3months_ip_90p.acq",
-    u30: "g1.ai.ultra.3months_ip_90p.acq"
-  },
-  {
-    id: "p_tr",
-    name: "Bộ Thổ Nhĩ Kỳ (TR): Ultra 20TB 75p + Ultra 30TB mã cũ (g1.ios.30tb.m)",
-    u20: "g1.20tb.3months_ip_75p.acq",
-    u30: "g1.ios.30tb.m"
-  },
-  {
-    id: "p_gist99",
-    name: "Bộ Gist hectocg25: Gemini AI Ultra 3 Tháng 99p",
-    u20: "com.google.gemini.ai.ultra.m.3month_ip_99p",
-    u30: "com.google.gemini.20tb.ai.m.3month_ip_99p"
-  },
-  {
-    id: "p1",
-    name: "Test 1: Ultra 30TB · 6 Tháng & 12 Tháng Free Trial (.acq)",
-    u20: "g1.ai.ultra.6months_eft.acq",
-    u30: "g1.ai.ultra.12months_eft.acq"
-  },
-  {
-    id: "p2",
-    name: "Test 2: Ultra 30TB · 6 Tháng (không .acq) & 1 Năm (1year_eft.acq)",
-    u20: "g1.ai.ultra.6months_eft",
-    u30: "g1.ai.ultra.1year_eft.acq"
-  },
-  {
-    id: "p3",
-    name: "Test 3: Ultra 30TB · 12 Tháng & 1 Năm (không .acq)",
-    u20: "g1.ai.ultra.12months_eft",
-    u30: "g1.ai.ultra.1year_eft"
-  },
-  {
-    id: "p4",
-    name: "Test 4: Ultra 30TB · 6month_eft.acq & 180days_eft.acq",
-    u20: "g1.ai.ultra.6month_eft.acq",
-    u30: "g1.ai.ultra.180days_eft.acq"
-  },
-  {
-    id: "p5",
-    name: "Test 5: Ultra 30TB nhánh play · 6 Tháng & 12 Tháng",
-    u20: "g1.play.ai.pro.6months_eft",
-    u30: "g1.play.ai.pro.12months_eft"
-  },
-  {
-    id: "p7",
-    name: "Test 6: Ultra 20TB · 6 Tháng (.acq) & 12 Tháng (g1.play.20tb.12months_eft)",
-    u20: "g1.20tb.6months_eft.acq",
-    u30: "g1.play.20tb.12months_eft"
-  },
-  {
-    id: "p8",
-    name: "Test 7: Ultra 20TB · 12 Tháng (.acq) & 1 Năm (1year_eft.acq)",
-    u20: "g1.20tb.12months_eft.acq",
-    u30: "g1.20tb.1year_eft.acq"
+  var KEY = "g1.sku.mappings.v1";
+  var LIMIT = 30;
+  var DEFAULT_REVISION = "defaults-75p-v1";
+  var SOURCE_PREFIX = "g1.ios.2tb.";
+  var READ_ERROR = "本地映射存储暂未就绪，本次保持响应原样。";
+  var CONFIG_ERROR = "映射配置格式异常，当前暂停改写；请恢复默认后重新编辑。";
+  var WRITE_ERROR = "保存结果未通过回读核对，请刷新页面查看当前配置。";
+  var REVISION_ERROR = "配置已变化，本次未保存；页面已载入最新规则，请重新编辑。";
+  var RULE_FIELDS = ["id", "match", "from", "to", "enabled"];
+  var RECORD_FIELDS = ["schemaVersion", "revision", "updatedAt", "customized", "rules"];
+
+  function defaults() {
+    return [
+      { id: "default-2tb", match: "prefix", from: SOURCE_PREFIX, to: "g1.2tb.ai.12months_ip_90p", enabled: true },
+      { id: "default-20tb", match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.20tb.3months_ip_75p.acq", enabled: true },
+      { id: "default-30tb", match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.ai.ultra.3months_ip_75p.acq", enabled: true }
+    ];
   }
-];
 
-function readStore(key, defVal) {
-  try {
-    if (typeof $persistentStore !== "undefined" && typeof $persistentStore.read === "function") {
-      var v = $persistentStore.read(key);
-      if (v && typeof v === "string" && v.trim() !== "") return v.trim();
-    }
-  } catch (e) {}
-  return defVal;
-}
-
-function writeStore(key, val) {
-  try {
-    if (typeof $persistentStore !== "undefined" && typeof $persistentStore.write === "function") {
-      return Boolean($persistentStore.write(String(val), key));
-    }
-  } catch (e) {}
-  return false;
-}
-
-function getQueryParam(url, name) {
-  var re = new RegExp("[?&]" + name + "=([^&#]*)");
-  var m = re.exec(url);
-  return m ? decodeURIComponent(m[1].replace(/\+/g, " ")).trim() : "";
-}
-
-function htmlEsc(s) {
-  return String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function occurrences(s, needle) {
-  return needle ? s.split(needle).length - 1 : 0;
-}
-
-function serveSafariReport(reqUrl) {
-  var pid = getQueryParam(reqUrl, "upreset");
-  var q20 = getQueryParam(reqUrl, "u20");
-  var q30 = getQueryParam(reqUrl, "u30");
-  var msg = "";
-
-  if (pid) {
-    for (var i = 0; i < ULTRA_PRESETS.length; i++) {
-      if (ULTRA_PRESETS[i].id === pid) {
-        writeStore(STORE_U20, ULTRA_PRESETS[i].u20);
-        writeStore(STORE_U30, ULTRA_PRESETS[i].u30);
-        msg = "Đã chuyển sang: " + ULTRA_PRESETS[i].name;
-        break;
+  function presets() {
+    return [
+      {
+        id: "ultra-30tb-75p-both",
+        title: "Ultra 30TB 75p cho Google App (Cả 2 nút 20TB & 30TB)",
+        description: "Khuyên dùng trong Google App (icon G): ép cả nút 20TB lẫn 30TB sang mã g1.ai.ultra.3months_ip_75p.acq (3 tháng giảm 75%) để tránh lỗi StoreKit không nhận g1.20tb.*.",
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.ai.ultra.3months_ip_75p.acq", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.ai.ultra.3months_ip_75p.acq", enabled: true }
+        ]
+      },
+      {
+        id: "ultra-75p",
+        title: "Ultra 20TB / 30TB · 3 Tháng 75p (Mặc định crhywun)",
+        description: "Nút 20TB dùng g1.20tb.3months_ip_75p.acq, nút 30TB dùng g1.ai.ultra.3months_ip_75p.acq (giảm 75%, trả 25%). Trong Google App hãy bấm nút 30TB ở dưới.",
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.20tb.3months_ip_75p.acq", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.ai.ultra.3months_ip_75p.acq", enabled: true }
+        ]
+      },
+      {
+        id: "ultra-1m-eft",
+        title: "Ultra 30TB & 20TB · 1 Tháng Free Trial (Mã video gốc)",
+        description: "Nút 20TB gắn g1.ai.ultra.1month_eft.acq (mã đã hiện bảng thanh toán Apple trong video), nút 30TB gắn g1.20tb.1month_eft.acq.",
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.ai.ultra.1month_eft.acq", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.20tb.1month_eft.acq", enabled: true }
+        ]
+      },
+      {
+        id: "ultra-90p",
+        title: "Ultra 30TB & 20TB · 3 Tháng 90p (Giảm 90%)",
+        description: "Nút 20TB gắn g1.ai.ultra.3months_ip_90p.acq, nút 30TB gắn g1.20tb.3months_ip_90p.acq.",
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.ai.ultra.3months_ip_90p.acq", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.20tb.3months_ip_90p.acq", enabled: true }
+        ]
+      },
+      {
+        id: "tr-ultra-30tb",
+        title: "Ultra 30TB Gốc · g1.ios.30tb.m (Thổ Nhĩ Kỳ / Quốc tế)",
+        description: "Mã iOS 30TB cũ (2949.99 TRY); ép cả nút 20TB và 30TB về g1.ios.30tb.m để kiểm tra bảng giá App Store.",
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.ios.30tb.m", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.ios.30tb.m", enabled: true }
+        ]
+      },
+      {
+        id: "ultra-6m-12m-acq",
+        title: "Test Ultra 30TB · 6 Tháng & 12 Tháng Free Trial (.acq)",
+        description: "Nút 20TB thử g1.ai.ultra.6months_eft.acq (6 tháng), nút 30TB thử g1.ai.ultra.12months_eft.acq (12 tháng).",
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.ai.ultra.6months_eft.acq", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.ai.ultra.12months_eft.acq", enabled: true }
+        ]
+      },
+      {
+        id: "ultra-6m-1y-eft",
+        title: "Test Ultra 30TB · 6 Tháng (không .acq) & 1 Năm (.acq)",
+        description: "Nút 20TB thử g1.ai.ultra.6months_eft, nút 30TB thử g1.ai.ultra.1year_eft.acq.",
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.ai.ultra.6months_eft", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.ai.ultra.1year_eft.acq", enabled: true }
+        ]
+      },
+      {
+        id: "ultra-20tb-6m-12m",
+        title: "Test Ultra 20TB · 6 Tháng & 12 Tháng (g1.20tb / g1.play)",
+        description: "Nút 20TB thử g1.20tb.6months_eft.acq, nút 30TB thử g1.play.20tb.12months_eft.",
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "g1.20tb.6months_eft.acq", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "g1.play.20tb.12months_eft", enabled: true }
+        ]
+      },
+      {
+        id: "ultra-gemini-99p",
+        title: "Test Gemini Ultra 99p (Mở trong App Gemini)",
+        description: "Thử mã com.google.gemini.ai.ultra.m.3month_ip_99p và com.google.gemini.20tb.ai.m.3month_ip_99p.",
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "com.google.gemini.ai.ultra.m.3month_ip_99p", enabled: true },
+          { match: "exact", from: "g1.ios.30tb.ai.pro.m", to: "com.google.gemini.20tb.ai.m.3month_ip_99p", enabled: true }
+        ]
+      },
+      {
+        id: "pro-1yuan",
+        title: "1 元开 Pro（前三月约 1 元/月）",
+        description: "实测成功：改写后收银台前三月约 1 元/月，入口选 Ultra 5x，实际到手 Pro。周期与金额按 App Store 面板核对。",
+        rules: [
+          { match: "exact", from: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", enabled: true }
+        ]
+      },
+      {
+        id: "pro-12months-90p",
+        title: "2TB / Pro · 12个月 90p",
+        description: "使用现有 2TB 前缀和 12个月优惠目标；商品周期按 App Store 购买面板显示。",
+        rules: [
+          { match: "prefix", from: SOURCE_PREFIX, to: "g1.2tb.ai.12months_ip_90p", enabled: true }
+        ]
       }
+    ];
+  }
+
+  function validSku(value) {
+    return typeof value === "string" &&
+      /^(?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]{0,159}[A-Za-z0-9_-]$(?![\s\S])/.test(value);
+  }
+
+  function validPrefix(value) {
+    return typeof value === "string" &&
+      /^(?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]{1,159}\.$(?![\s\S])/.test(value);
+  }
+
+  function hasFields(value, fields, allowExtra) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    return (allowExtra || Object.keys(value).length === fields.length) && fields.every(function (field) {
+      return Object.prototype.hasOwnProperty.call(value, field);
+    });
+  }
+
+  function invalidRules(error) {
+    return { ok: false, rules: [], error: error };
+  }
+
+  function validateRules(value) {
+    if (!Array.isArray(value) || value.length > LIMIT) {
+      return invalidRules("映射需要规则列表，最多保存 30 条。");
     }
-  } else if (q20 || q30) {
-    if (q20) writeStore(STORE_U20, q20);
-    if (q30) writeStore(STORE_U30, q30);
-    msg = "Đã lưu mã SKU Ultra tùy chỉnh!";
-  }
-
-  var activeU20 = readStore(STORE_U20, ULTRA_PRESETS[0].u20);
-  var activeU30 = readStore(STORE_U30, ULTRA_PRESETS[0].u30);
-  var historySkus = [];
-  try {
-    var parsed = JSON.parse(readStore(STORE_SEEN, "[]"));
-    if (Array.isArray(parsed)) historySkus = parsed;
-  } catch (e) {}
-
-  var cards = "";
-  for (var k = 0; k < ULTRA_PRESETS.length; k++) {
-    var pr = ULTRA_PRESETS[k];
-    var isCur = (pr.u20 === activeU20 && pr.u30 === activeU30);
-    cards +=
-      "<a href=\"https://one.google.com/g1-sku-report?upreset=" + encodeURIComponent(pr.id) + "&_t=" + Date.now() + "\" " +
-      "style=\"display:block;padding:10px 12px;margin:8px 0;border-radius:8px;text-decoration:none;font-size:13px;" +
-      (isCur ? "background:#1d4ed8;color:#fff;border:1px solid #60a5fa;" : "background:#1e293b;color:#e2e8f0;border:1px solid #334155;") + "\">" +
-      "<b>" + (isCur ? "✅ ĐANG BẬT: " : "👉 Bấm chọn: ") + htmlEsc(pr.name) + "</b><br>" +
-      "<span style=\"color:#93c5fd;font-family:monospace;font-size:12px;\">20TB &rarr; " + htmlEsc(pr.u20) + "</span><br>" +
-      "<span style=\"color:#fde047;font-family:monospace;font-size:12px;\">30TB &rarr; " + htmlEsc(pr.u30) + "</span></a>";
-  }
-
-  var seenHtml = "";
-  for (var j = 0; j < historySkus.length; j++) {
-    var s = historySkus[j];
-    seenHtml +=
-      "<div style=\"display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1e293b;font-family:monospace;font-size:12px;\">" +
-      "<span style=\"color:#38bdf8;word-break:break-all;\">" + htmlEsc(s) + "</span>" +
-      "<span style=\"white-space:nowrap;margin-left:8px;\">" +
-      "<a href=\"https://one.google.com/g1-sku-report?u20=" + encodeURIComponent(s) + "&u30=" + encodeURIComponent(activeU30) + "\" style=\"color:#93c5fd;margin-right:8px;\">[Gán 20TB]</a>" +
-      "<a href=\"https://one.google.com/g1-sku-report?u20=" + encodeURIComponent(activeU20) + "&u30=" + encodeURIComponent(s) + "\" style=\"color:#fde047;\">[Gán 30TB]</a>" +
-      "</span></div>";
-  }
-
-  var html =
-    "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
-    "<title>Ultra SKU Switcher (v10)</title></head>" +
-    "<body style=\"font-family:-apple-system,sans-serif;background:#0f172a;color:#f8fafc;padding:14px;margin:0;\">" +
-    "<h3 style=\"margin:0 0 8px;color:#60a5fa;\">⚡ Đổi Mã Google AI Ultra (v10)</h3>" +
-    (msg ? "<div style=\"padding:10px;margin-bottom:10px;background:#14532d;color:#86efac;border-radius:8px;font-weight:bold;\">✅ " + htmlEsc(msg) + "<br><small style=\"color:#bbf7d0;\">Giờ qua Google App đóng trang Google One rồi bấm Xem chi tiết lại!</small></div>" : "") +
-    "<div style=\"background:#1e293b;padding:10px;border-radius:8px;font-size:12px;line-height:1.6;margin-bottom:12px;\">" +
-    "<div><b>Nút 20TB / 5TB đang gán:</b> <code style=\"color:#93c5fd;\">" + htmlEsc(activeU20) + "</code></div>" +
-    "<div><b>Nút 30TB đang gán:</b> <code style=\"color:#fde047;\">" + htmlEsc(activeU30) + "</code></div></div>" +
-    "<form method=\"GET\" action=\"https://one.google.com/g1-sku-report\" style=\"background:#1e293b;padding:10px;border-radius:8px;margin-bottom:12px;\">" +
-    "<div style=\"font-weight:bold;margin-bottom:6px;font-size:13px;\">Nhập tay mã SKU Ultra bất kỳ:</div>" +
-    "<input type=\"text\" name=\"u20\" value=\"" + htmlEsc(activeU20) + "\" style=\"width:100%;box-sizing:border-box;padding:8px;margin-bottom:6px;border-radius:6px;border:1px solid #475569;background:#0f172a;color:#93c5fd;font-family:monospace;\">" +
-    "<input type=\"text\" name=\"u30\" value=\"" + htmlEsc(activeU30) + "\" style=\"width:100%;box-sizing:border-box;padding:8px;margin-bottom:8px;border-radius:6px;border:1px solid #475569;background:#0f172a;color:#fde047;font-family:monospace;\">" +
-    "<button type=\"submit\" style=\"width:100%;padding:9px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-weight:bold;\">Lưu cấu hình</button></form>" +
-    "<div style=\"font-weight:bold;margin-bottom:6px;\">Chạm 1 lần để đổi bộ mã:</div>" + cards +
-    "<div style=\"font-weight:bold;margin:14px 0 6px;color:#38bdf8;\">Mã SKU thu được từ trang /ai (" + historySkus.length + "):</div>" +
-    (seenHtml || "<div style=\"color:#94a3b8;font-size:12px;\">Chưa có dữ liệu — hãy mở trang Xem chi tiết trong Google App 1 lần.</div>") +
-    "</body></html>";
-
-  $done({
-    response: {
-      status: 200,
-      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
-      body: html
+    var rules = [];
+    var ids = Object.create(null);
+    var sources = Object.create(null);
+    for (var index = 0; index < value.length; index += 1) {
+      var rule = value[index];
+      if (!hasFields(rule, RULE_FIELDS) || typeof rule.id !== "string" ||
+          !/^[a-z][a-z0-9-]{0,39}$(?![\s\S])/.test(rule.id) ||
+          (rule.match !== "exact" && rule.match !== "prefix") ||
+          !(rule.match === "exact" ? validSku(rule.from) : validPrefix(rule.from)) ||
+          !validSku(rule.to) || typeof rule.enabled !== "boolean") {
+        return invalidRules("请填写完整 SKU；前缀需以点结尾，目标需为 g1.、com.google.one. 或 com.google.gemini. 编号。");
+      }
+      if (rule.from === rule.to) return invalidRules("原始 SKU 与目标 SKU 相同，请填写不同的目标。");
+      if (ids[rule.id]) return invalidRules("规则标识重复，请刷新管理页后重试。");
+      var source = rule.match + ":" + rule.from;
+      if (sources[source]) return invalidRules("相同匹配方式的原始 SKU 已存在，请编辑已有规则。");
+      ids[rule.id] = true;
+      sources[source] = true;
+      rules.push({ id: rule.id, match: rule.match, from: rule.from, to: rule.to, enabled: rule.enabled });
     }
-  });
-}
-
-function run() {
-  var reqUrl = (typeof $request === "object" && $request && $request.url) ? String($request.url) : "";
-  var isResponse = (typeof $response === "object" && $response !== null);
-
-  /* 1. Chế độ trang điều khiển Safari: https://one.google.com/g1-sku-report */
-  if (/^https:\/\/one\.google\.com\/g1-sku-report\/?(?:\?|$)/.test(reqUrl) && !isResponse) {
-    serveSafariReport(reqUrl);
-    return;
+    return { ok: true, rules: rules, error: "" };
   }
 
-  /* 2. Chế độ thay chuỗi thuần túy trên https://one.google.com/ai? (giống hệt v6, không chèn HTML) */
-  if (!isResponse) {
-    $done({});
-    return;
+  function randomHex(length) {
+    var value = "";
+    for (var index = 0; index < length; index += 1) value += Math.floor(Math.random() * 16).toString(16);
+    return value;
   }
 
-  var body = $response.body;
-  if (typeof body !== "string" || body === "" || !/^https:\/\/one\.google\.com\/(?:u\/\d+\/)?ai\?/.test(reqUrl)) {
-    $done({});
-    return;
+  function newId() {
+    return "rule-" + randomHex(16);
   }
 
-  var activeU20 = readStore(STORE_U20, ULTRA_PRESETS[0].u20);
-  var activeU30 = readStore(STORE_U30, ULTRA_PRESETS[0].u30);
+  function configState(status, revision, updatedAt, customized, rules, error) {
+    var target = "";
+    rules.some(function (rule) {
+      if (rule.enabled && rule.match === "prefix" && rule.from === SOURCE_PREFIX) {
+        target = rule.to;
+        return true;
+      }
+      return false;
+    });
+    return {
+      status: status,
+      revision: revision,
+      updatedAt: updatedAt,
+      mode: status === "default" ? "discount75" : status === "custom" ? "custom" : "",
+      customized: customized,
+      rules: rules,
+      target: target,
+      targetOrigin: target ? customized ? "user-configured" : "user-specified" : "",
+      error: error
+    };
+  }
 
-  /* Quét ngầm SKU gốc lưu vào bộ nhớ để xem bên Safari (không sửa nội dung trang) */
-  try {
-    var decoded = body.replace(/\\u002e|\\x2e/gi, ".");
-    var matches = decoded.match(/\b(?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]{3,80}\b/g) || [];
-    var historySkus = [];
+  function failedState(status) {
+    return configState(status, status, "", false, [], status === "invalid" ? CONFIG_ERROR : READ_ERROR);
+  }
+
+  function validTime(value) {
+    return typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$(?![\s\S])/.test(value) &&
+      isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+  }
+
+  function read() {
+    var raw;
     try {
-      var p = JSON.parse(readStore(STORE_SEEN, "[]"));
-      if (Array.isArray(p)) historySkus = p;
-    } catch (e) {}
-    var changed = false;
-    for (var i = 0; i < matches.length; i++) {
-      if (historySkus.indexOf(matches[i]) === -1 && historySkus.length < 200) {
-        historySkus.push(matches[i]);
-        changed = true;
+      if (!store || typeof store.read !== "function") return failedState("unavailable");
+      raw = store.read(KEY);
+    } catch (error) {
+      return failedState("unavailable");
+    }
+    if (raw === null || typeof raw === "undefined" || raw === "") {
+      return configState("default", DEFAULT_REVISION, "", false, defaults(), "");
+    }
+    try {
+      if (typeof raw !== "string") return failedState("invalid");
+      var saved = JSON.parse(raw);
+      if (!hasFields(saved, RECORD_FIELDS, true) || saved.schemaVersion !== 1 ||
+          typeof saved.revision !== "string" || !/^[a-f0-9]{48}$(?![\s\S])/.test(saved.revision) ||
+          !validTime(saved.updatedAt) || typeof saved.customized !== "boolean") {
+        return failedState("invalid");
       }
+      var checked = validateRules(saved.rules);
+      if (!checked.ok || (!saved.customized && checked.rules.length !== 0)) return failedState("invalid");
+      return configState(saved.customized ? "custom" : "default", saved.revision, saved.updatedAt,
+        saved.customized, saved.customized ? checked.rules : defaults(), "");
+    } catch (error) {
+      return failedState("invalid");
     }
-    if (changed) {
-      historySkus.sort();
-      writeStore(STORE_SEEN, JSON.stringify(historySkus));
-    }
-  } catch (e) {}
+  }
 
-  var SKU_MAP = {
-    "g1.ios.20tb.m.v2": activeU20,
-    "g1.ios.5tb.m.v2": activeU20,
-    "g1.ios.30tb.ai.pro.m": activeU30
+  function saveResult(status, error, config) {
+    return { ok: status === 200, status: status, error: error, config: config };
+  }
+
+  function save(expectedRevision, rules, restore) {
+    var current = read();
+    if (current.status === "unavailable") return saveResult(503, READ_ERROR, current);
+    if (typeof expectedRevision !== "string" || expectedRevision !== current.revision) {
+      return saveResult(409, REVISION_ERROR, current);
+    }
+    if (current.status === "invalid" && restore !== true) return saveResult(400, CONFIG_ERROR, current);
+    var checked = restore === true ? { ok: true, rules: [] } : validateRules(rules);
+    if (!checked.ok) return saveResult(400, checked.error, current);
+    try {
+      if (!store || typeof store.write !== "function") return saveResult(503, WRITE_ERROR, current);
+    } catch (error) {
+      return saveResult(503, WRITE_ERROR, current);
+    }
+
+    var revision = randomHex(48);
+    // Keep the change identifier fresh even if the random source repeats a value.
+    if (revision === current.revision) {
+      revision = revision.slice(0, 47) + ((parseInt(revision.charAt(47), 16) + 1) % 16).toString(16);
+    }
+    var saved = {
+      schemaVersion: 1,
+      revision: revision,
+      updatedAt: new Date().toISOString(),
+      customized: restore !== true,
+      rules: checked.rules
+    };
+    var written = false;
+    try {
+      written = store.write(JSON.stringify(saved), KEY);
+    } catch (error) {
+      written = false;
+    }
+    var verified = read();
+    var expectedRules = saved.customized ? saved.rules : defaults();
+    if (!written || verified.status !== (saved.customized ? "custom" : "default") ||
+        verified.revision !== saved.revision || verified.updatedAt !== saved.updatedAt ||
+        verified.customized !== saved.customized || JSON.stringify(verified.rules) !== JSON.stringify(expectedRules)) {
+      return saveResult(503, WRITE_ERROR, verified);
+    }
+    return saveResult(200, "", verified);
+  }
+
+  function applyPreset(expectedRevision, presetId) {
+    var current = read();
+    if (current.status === "unavailable") return saveResult(503, READ_ERROR, current);
+    if (typeof expectedRevision !== "string" || expectedRevision !== current.revision) {
+      return saveResult(409, REVISION_ERROR, current);
+    }
+    if (current.status === "invalid") return saveResult(400, CONFIG_ERROR, current);
+
+    var selected = null;
+    presets().some(function (preset) {
+      if (preset.id !== presetId) return false;
+      selected = preset;
+      return true;
+    });
+    if (!selected) return saveResult(400, "映射模板不存在，请刷新管理页后重试。", current);
+
+    var rules = current.rules.slice();
+    var ids = Object.create(null);
+    var positions = Object.create(null);
+    rules.forEach(function (rule, index) {
+      ids[rule.id] = true;
+      positions[rule.match + ":" + rule.from] = index;
+    });
+    selected.rules.forEach(function (rule) {
+      var source = rule.match + ":" + rule.from;
+      var position = positions[source];
+      var id;
+      if (typeof position === "number") {
+        id = rules[position].id;
+      } else {
+        var base = newId();
+        id = base;
+        // There are at most rules.length occupied candidates, even if randomness repeats.
+        for (var suffix = 1; suffix <= rules.length && ids[id]; suffix += 1) id = base + "-" + suffix;
+        ids[id] = true;
+        position = rules.length;
+        positions[source] = position;
+      }
+      rules[position] = { id: id, match: rule.match, from: rule.from, to: rule.to, enabled: true };
+    });
+
+    var checked = validateRules(rules);
+    if (!checked.ok) return saveResult(400, checked.error, current);
+    return save(expectedRevision, checked.rules, false);
+  }
+
+  function resolve(id, state) {
+    if (!validSku(id) || !state || (state.status !== "default" && state.status !== "custom") ||
+        !Array.isArray(state.rules)) return null;
+    var selected = null;
+    for (var index = 0; index < state.rules.length; index += 1) {
+      var rule = state.rules[index];
+      if (!rule.enabled) continue;
+      if (rule.match === "exact" && rule.from === id) return rule;
+      if (rule.match === "prefix" && id.length > rule.from.length && id.indexOf(rule.from) === 0 &&
+          (!selected || rule.from.length > selected.from.length)) selected = rule;
+    }
+    return selected;
+  }
+
+  return {
+    key: KEY,
+    limit: LIMIT,
+    defaults: defaults,
+    presets: presets,
+    validSku: validSku,
+    validateRules: validateRules,
+    newId: newId,
+    read: read,
+    save: save,
+    applyPreset: applyPreset,
+    resolve: resolve
+  };
+}
+// END GENERATED MAPPING CONFIG
+
+(function () {
+  var VERSION = "g1-acq-v7.11-mappings";
+  var SOURCE_PREFIX = "g1.ios.2tb.";
+  var TEST_KEY = "g1.pro.annual.test.v1";
+  var SCAN_KEY = "g1.sku.scan.v1";
+  var SCAN_LIMIT = 300;
+  var RECENT_LIMIT = 10;
+  var MAX_EVENT_COUNT = 9007199254740991;
+  var url = typeof $request === "object" && $request ? $request.url : "";
+
+  if (typeof url !== "string" || !/^https:\/\/one\.google\.com\//.test(url) ||
+      /^https:\/\/one\.google\.com\/g1-sku-report\/?(?:\?|$)/.test(url)) {
+    $done({});
+    return;
+  }
+
+  var mappingEngine = createG1MappingConfig(typeof $persistentStore === "undefined" ? null : $persistentStore);
+  var mappingConfig = mappingEngine.read();
+  var MODE = mappingConfig.mode;
+  var configError = mappingConfig.status === "invalid" || mappingConfig.status === "unavailable";
+  console.log("[g1-acq] " + VERSION + " mappingStatus=" + mappingConfig.status +
+    " mappingRevision=" + mappingConfig.revision + " mode=" + MODE);
+
+  var body = typeof $response === "object" && $response ? $response.body : undefined;
+  try {
+    collectOriginalSkus(body);
+  } catch (error) {
+    console.log("[g1-acq] SKU collection unavailable");
+  }
+
+  if (!/^https:\/\/one\.google\.com\/ai\?/.test(url)) {
+    $done({});
+    return;
+  }
+
+  var mappings = Object.create(null);
+  var hits = 0;
+  var annualHits = 0;
+  var out = body;
+
+  if (typeof body === "string" && !configError) {
+    // Resolve complete tokens once; replacement targets are never matched again.
+    out = body.replace(
+      /(^|[^A-Za-z0-9._@%-])((?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]+)(?=$|[^A-Za-z0-9._-])/g,
+      function (match, before, id) {
+        var rule = mappingEngine.resolve(id, mappingConfig);
+        if (!rule) return match;
+        var isAnnual = id.indexOf(SOURCE_PREFIX) === 0 && id.length > SOURCE_PREFIX.length;
+        if (!mappings[id]) mappings[id] = { id: id, to: rule.to, count: 0, fallback: false };
+        mappings[id].count += 1;
+        hits += 1;
+        if (isAnnual) annualHits += 1;
+        return before + rule.to;
+      }
+    );
+  }
+
+  var sources = Object.keys(mappings).sort().map(function (id) {
+    return mappings[id];
+  });
+  var record = {
+    schemaVersion: 1,
+    version: VERSION,
+    mode: MODE,
+    updatedAt: new Date().toISOString(),
+    mappingRevision: mappingConfig.revision,
+    mappingUpdatedAt: mappingConfig.updatedAt,
+    mappingStatus: mappingConfig.status,
+    sourcePrefix: SOURCE_PREFIX,
+    target: mappingConfig.target,
+    targetOrigin: mappingConfig.targetOrigin,
+    hitCount: hits,
+    // Legacy field name: counts 2TB/Pro rewrites, not the billing interval.
+    annualHitCount: annualHits,
+    matchedFrom: sources,
+    status: configError ? "config-error" : typeof body !== "string" ? "non-text" : hits ? "rewritten" : "no-match"
   };
 
-  var out = body;
-  var total = 0;
-  var froms = Object.keys(SKU_MAP);
-  for (var k = 0; k < froms.length; k++) {
-    var from = froms[k];
-    var to = SKU_MAP[from];
-    if (!to || from === to) continue;
-    var n = occurrences(out, from);
-    if (n === 0) continue;
-    out = out.split(from).join(to);
-    total += n;
-    console.log("[g1-acq-v10] " + from + " -> " + to + " x" + n);
+  try {
+    if (typeof $persistentStore !== "undefined" &&
+        typeof $persistentStore.write === "function") {
+      if (!$persistentStore.write(JSON.stringify(record), TEST_KEY)) {
+        console.log("[g1-acq] local record write failed");
+      }
+    }
+  } catch (error) {
+    console.log("[g1-acq] local record unavailable");
   }
 
-  /* QUAN TRỌNG: Nếu không có gì thay đổi thì trả $done({}) nguyên bản, tuyệt đối không ghi đè body */
-  $done(total ? { body: out } : {});
-}
+  console.log("[g1-acq] " + VERSION + " hits=" + hits + " annualHits=" + annualHits + " mode=" + MODE);
+  sources.forEach(function (source) {
+    console.log("[g1-acq] " + source.id + " -> " + source.to + " x" + source.count);
+  });
+  $done(hits ? { body: out } : {});
 
-run();
+  function collectOriginalSkus(originalBody) {
+    var now = new Date().toISOString();
+    var saved = {};
+    try {
+      if (typeof $persistentStore !== "undefined" && typeof $persistentStore.read === "function") {
+        saved = JSON.parse($persistentStore.read(SCAN_KEY) || "{}");
+      }
+    } catch (error) {
+      saved = {};
+    }
+    if (!saved || saved.schemaVersion !== 1) saved = {};
+
+    var byId = Object.create(null);
+    var ids = [];
+    var validId = /^(?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]{1,160}$/;
+    var oldRows = Array.isArray(saved.skus) ? saved.skus : [];
+    oldRows.slice(0, SCAN_LIMIT).forEach(function (row) {
+      if (!row || typeof row.id !== "string" || !validId.test(row.id) || byId[row.id]) return;
+      var count = Number(row.count);
+      byId[row.id] = {
+        id: row.id,
+        count: isFinite(count) && count > 0 ? Math.floor(count) : 0,
+        lastSeen: typeof row.lastSeen === "string" ? row.lastSeen.slice(0, 32) : ""
+      };
+      ids.push(row.id);
+    });
+
+    var isText = typeof originalBody === "string";
+    var found = Object.create(null);
+    var hitCount = 0;
+    var addedCount = 0;
+    var omittedCount = 0;
+    var truncated = saved.truncated === true;
+    if (isText) {
+      // Decode escaped dots on a discovery copy before rewriting the original body.
+      var text = originalBody.replace(/\\u002e|\\x2e|&#0*46;|&#x0*2e;|&period;/gi, ".");
+      var token = /(^|[^A-Za-z0-9._@%-])((?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]+)(?=$|[^A-Za-z0-9._-])/g;
+      var match;
+      while ((match = token.exec(text)) !== null) {
+        var id = match[2];
+        if (!validId.test(id)) continue;
+        found[id] = (found[id] || 0) + 1;
+        hitCount += 1;
+        if (!byId[id]) {
+          if (ids.length >= SCAN_LIMIT) {
+            truncated = true;
+            if (found[id] === 1) omittedCount += 1;
+            continue;
+          }
+          byId[id] = { id: id, count: 0, lastSeen: now };
+          ids.push(id);
+          addedCount += 1;
+        }
+        byId[id].count += 1;
+        byId[id].lastSeen = now;
+      }
+    }
+
+    var candidateCount = Object.keys(found).length;
+    var bodyType = isText ? "text" : "non-text";
+    var status = responseStatus(bodyType, candidateCount, addedCount, omittedCount);
+    var recentResponses = [];
+    var oldResponses = Array.isArray(saved.recentResponses) ? saved.recentResponses : [];
+    oldResponses.slice(-RECENT_LIMIT).forEach(function (row) {
+      var event = priorResponse(row);
+      if (event) recentResponses.push(event);
+    });
+    // Preserve arrival order even if the device clock moves backward.
+    recentResponses.push({
+      at: now,
+      path: safeRoute(url),
+      bodyType: bodyType,
+      status: status,
+      candidateCount: candidateCount,
+      addedCount: addedCount,
+      omittedCount: omittedCount
+    });
+
+    function priorCount(value) {
+      var number = Number(value);
+      return isFinite(number) && number > 0 ? Math.floor(number) : 0;
+    }
+    var state = {
+      schemaVersion: 1,
+      version: VERSION,
+      mode: MODE,
+      updatedAt: now,
+      scannedResponses: priorCount(saved.scannedResponses) + (isText ? 1 : 0),
+      matchedResponses: priorCount(saved.matchedResponses) + (hitCount > 0 ? 1 : 0),
+      nonTextResponses: priorCount(saved.nonTextResponses) + (isText ? 0 : 1),
+      recentResponses: recentResponses.slice(-RECENT_LIMIT),
+      limit: SCAN_LIMIT,
+      truncated: truncated,
+      skus: ids.sort().map(function (id) { return byId[id]; })
+    };
+    var stored = false;
+    try {
+      if (typeof $persistentStore !== "undefined" && typeof $persistentStore.write === "function") {
+        stored = $persistentStore.write(JSON.stringify(state), SCAN_KEY);
+      }
+    } catch (error) {
+      stored = false;
+    }
+
+    console.log("[g1-acq] " + VERSION + " status=" + status + " addedCount=" + addedCount +
+      " candidates=" + candidateCount + " omittedCount=" + omittedCount +
+      " occurrences=" + hitCount + " saved=" + (stored ? "yes" : "no") + " mode=" + MODE);
+    Object.keys(found).sort().slice(0, SCAN_LIMIT).forEach(function (id) {
+      console.log("[g1-acq] " + id + " x" + found[id]);
+    });
+  }
+
+  function safeRoute(requestUrl) {
+    var path = requestUrl.replace(/^https:\/\/one\.google\.com/, "").split(/[?#]/)[0];
+    path = path.replace(/\/+$/, "") || "/";
+    if (path === "/" || path === "/ai" || path === "/plans") return path;
+    if (/^\/_\/[^?#]+\/data\/batchexecute$/.test(path)) return "/_/…/data/batchexecute";
+    return "[其他 one.google.com 路径]";
+  }
+
+  function responseStatus(bodyType, candidateCount, addedCount, omittedCount) {
+    if (bodyType === "non-text") return "non-text";
+    if (addedCount > 0) return "new-skus";
+    if (omittedCount > 0) return "limit-reached";
+    return candidateCount > 0 ? "known-skus" : "no-skus";
+  }
+
+  function priorResponse(row) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+    if (typeof row.at !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(row.at) ||
+        !isFinite(Date.parse(row.at)) || new Date(row.at).toISOString() !== row.at) return null;
+    if (row.path !== "/" && row.path !== "/ai" && row.path !== "/plans" &&
+        row.path !== "/_/…/data/batchexecute" && row.path !== "[其他 one.google.com 路径]") return null;
+    if (row.bodyType !== "text" && row.bodyType !== "non-text") return null;
+
+    function counter(value, maximum) {
+      if (typeof value !== "number" || !isFinite(value)) return null;
+      return Math.max(0, Math.min(maximum, Math.floor(value)));
+    }
+    var candidateCount = counter(row.candidateCount, MAX_EVENT_COUNT);
+    if (candidateCount === null) return null;
+    var addedCount = counter(row.addedCount, Math.min(SCAN_LIMIT, candidateCount));
+    if (addedCount === null) return null;
+    var omittedCount = counter(row.omittedCount, candidateCount - addedCount);
+    if (omittedCount === null) return null;
+    if (row.bodyType === "non-text" && (candidateCount || addedCount || omittedCount)) return null;
+    if (row.status !== responseStatus(row.bodyType, candidateCount, addedCount, omittedCount)) return null;
+    return {
+      at: row.at,
+      path: row.path,
+      bodyType: row.bodyType,
+      status: row.status,
+      candidateCount: candidateCount,
+      addedCount: addedCount,
+      omittedCount: omittedCount
+    };
+  }
+})();

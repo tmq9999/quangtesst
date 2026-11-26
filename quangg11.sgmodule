@@ -1,13 +1,13 @@
-#!name=G1 ACQ Ultra (6M / 1Y / 1M Tester)
-#!desc=Chỉ gói Google AI Ultra (20TB/30TB) — tích hợp menu chọn nhanh 12 bộ SKU Ultra 6 Tháng & 1 Năm Free Trial ngay trên đầu trang one.google.com/ai trong Google App
+#!name=G1 ACQ Ultra (v9 Switcher)
+#!desc=Chỉ gói Google AI Ultra (20TB/30TB) — đổi bộ mã trực tiếp trong Google App (/ai) hoặc Safari (https://one.google.com/g1-sku-report)
 #!system=ios
 
 [Rule]
-# Google App 走 HTTP/3 时响应无法解密,需屏蔽 QUIC
 AND,((PROTOCOL,UDP),(DEST-PORT,443)),REJECT-NO-DROP
 
 [Script]
-g1-acq = type=http-response,pattern=^https:\/\/one\.google\.com\/(?:u\/\d+\/)?ai,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/quangg11.js?v=8
+g1-acq-report = type=http-request,pattern=^https:\/\/one\.google\.com\/g1-sku-report\/?(?:\?.*)?$,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/quangg11.js?v=9
+g1-acq = type=http-response,pattern=^https:\/\/one\.google\.com\/(?:u\/\d+\/)?ai,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/quangg11.js?v=9
 
 [MITM]
 hostname = %APPEND% one.google.com

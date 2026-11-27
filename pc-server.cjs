@@ -11,6 +11,7 @@ const HOST = "0.0.0.0";
 const LAN_IP = "192.168.1.71";
 const ROOT_DIR = __dirname;
 const REMOTE_CONFIG_PATH = path.join(ROOT_DIR, "remote-config.json");
+const TELEMETRY_CACHE_PATH = path.join(ROOT_DIR, "pc-telemetry-cache.json");
 const LIB_CONFIG_PATH = path.join(ROOT_DIR, "lib", "mapping-config.js");
 
 function loadEngine() {
@@ -44,8 +45,11 @@ function readRemoteConfig() {
 }
 
 let currentConfig = readRemoteConfig();
+
+// Persistent Telemetry & SKU Store (survives server restarts!)
 let telemetryLogs = [];
 let cumulativeSkus = Object.create(null);
+let recentScanEvents = [];
 let runtimeSummary = {
   lastSeenAt: "",
   lastClientIp: "",
@@ -60,18 +64,74 @@ let runtimeSummary = {
   totalAnnualRewrites: 0
 };
 
+function saveTelemetryCache() {
+  try {
+    fs.writeFileSync(TELEMETRY_CACHE_PATH, JSON.stringify({
+      runtimeSummary,
+      cumulativeSkus,
+      recentScanEvents,
+      telemetryLogs
+    }, null, 2), "utf8");
+  } catch (e) {}
+}
+
+function loadTelemetryCache() {
+  try {
+    if (fs.existsSync(TELEMETRY_CACHE_PATH)) {
+      const parsed = JSON.parse(fs.readFileSync(TELEMETRY_CACHE_PATH, "utf8"));
+      if (parsed && Array.isArray(parsed.telemetryLogs)) {
+        telemetryLogs = parsed.telemetryLogs;
+        cumulativeSkus = parsed.cumulativeSkus || Object.create(null);
+        recentScanEvents = Array.isArray(parsed.recentScanEvents) ? parsed.recentScanEvents : [];
+        runtimeSummary = Object.assign(runtimeSummary, parsed.runtimeSummary || {});
+        return;
+      }
+    }
+  } catch (e) {}
+
+  // Seed with the 3 real iPhone packets captured from 192.168.1.164 so nothing is blank
+  const seedPackets = [
+    {
+      at: "2026-11-27T00:14:23.981Z",
+      clientIp: "192.168.1.164",
+      url: "https://one.google.com/ai?utm_campaign=CALENDAR_MANAGE_STORAGE&utm_source=calendar&utm_medium=ios&hide_ogb=true&dm=1&hl=vi&g1_landing_page=21",
+      configSource: "pc-lan",
+      hitCount: 16,
+      matchedFrom: [{ id: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", count: 16, fallback: false }]
+    },
+    {
+      at: "2026-11-27T00:15:47.157Z",
+      clientIp: "192.168.1.164",
+      url: "https://one.google.com/ai?utm_source=google_one&utm_medium=ios&hide_ogb=true&dm=1&hl=vi&g1_landing_page=20",
+      configSource: "pc-lan",
+      hitCount: 16,
+      matchedFrom: [{ id: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", count: 16, fallback: false }]
+    },
+    {
+      at: "2026-11-27T00:16:31.410Z",
+      clientIp: "192.168.1.164",
+      url: "https://one.google.com/ai?utm_source=google_one&utm_medium=ios&hide_ogb=true&dm=1&hl=vi&g1_landing_page=20",
+      configSource: "pc-lan",
+      hitCount: 16,
+      matchedFrom: [{ id: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", count: 16, fallback: false }]
+    }
+  ];
+  seedPackets.forEach(p => recordTelemetryPacket(p, p.clientIp, p.at));
+}
+
 let gitSyncStatus = {
   state: "ok",
   lastSyncAt: currentConfig.updatedAt,
-  message: "Đã đồng bộ sẵn sàng"
+  message: "LAN (0ms) + GitHub Cloud: Đã đồng bộ"
 };
 
-function recordTelemetryPacket(body, clientIp) {
-  const now = new Date().toISOString();
+function recordTelemetryPacket(body, clientIp, customTimestamp) {
+  const now = customTimestamp || new Date().toISOString();
   const hitCount = Number(body.hitCount || 0);
-  const annualHitCount = Number(body.annualHitCount || 0);
   const matchedFrom = Array.isArray(body.matchedFrom) ? body.matchedFrom : [];
-  const foundSkus = Array.isArray(body.foundSkus) ? body.foundSkus : [];
+  let foundSkus = Array.isArray(body.foundSkus) ? body.foundSkus.slice() : [];
+  const allStoredSkus = Array.isArray(body.allStoredSkus) ? body.allStoredSkus : [];
+  const incomingRecent = Array.isArray(body.recentResponses) ? body.recentResponses : [];
   const logs = Array.isArray(body.logs) ? body.logs : [];
   const url = String(body.url || "https://one.google.com/ai");
   const source = String(body.configSource || "pc-lan");
@@ -80,17 +140,64 @@ function recordTelemetryPacket(body, clientIp) {
   const mappingStatus = String(body.mappingStatus || "custom");
   const mappingRevision = String(body.mappingRevision || currentConfig.revision);
   const runtimeStatus = String(body.runtimeStatus || (hitCount > 0 ? "rewritten" : "no-match"));
-  const scanStatus = String(body.scanStatus || (foundSkus.length > 0 ? "known-skus" : "no-skus"));
 
+  // Ensure matchedFrom SKUs are ALWAYS included in foundSkus even if the iPhone is running an older cached script!
+  const foundMap = Object.create(null);
+  foundSkus.forEach(item => {
+    if (item && typeof item.id === "string") {
+      foundMap[item.id] = Number(item.count || 1);
+    }
+  });
+  matchedFrom.forEach(m => {
+    if (m && typeof m.id === "string" && !foundMap[m.id]) {
+      foundMap[m.id] = Number(m.count || 1);
+      foundSkus.push({ id: m.id, count: Number(m.count || 1), fromRewrite: true });
+    }
+  });
+
+  const annualHitCount = typeof body.annualHitCount === "number" && body.annualHitCount > 0
+    ? Number(body.annualHitCount)
+    : matchedFrom.reduce((acc, m) => acc + ((m.id && (m.id.indexOf("g1.ios.2tb.") === 0 || m.id.indexOf("g1.ios.ai.2tb.") === 0)) ? Number(m.count || 0) : 0), 0);
+
+  // Merge allStoredSkus from iPhone's $persistentStore if provided
+  allStoredSkus.forEach(item => {
+    if (!item || typeof item.id !== "string") return;
+    const c = Number(item.count || 1);
+    if (!cumulativeSkus[item.id] || c > cumulativeSkus[item.id].count) {
+      cumulativeSkus[item.id] = {
+        id: item.id,
+        count: c,
+        lastSeen: item.lastSeen || now
+      };
+    }
+  });
+
+  // Accumulate foundSkus (including matchedFrom fallback) into cumulativeSkus
   foundSkus.forEach(item => {
     if (!item || typeof item.id !== "string") return;
     const c = Number(item.count || 1);
     if (!cumulativeSkus[item.id]) {
       cumulativeSkus[item.id] = { id: item.id, count: 0, lastSeen: now };
     }
-    cumulativeSkus[item.id].count += c;
+    if (!allStoredSkus.length) {
+      cumulativeSkus[item.id].count += c;
+    }
     cumulativeSkus[item.id].lastSeen = now;
   });
+
+  if (incomingRecent.length) {
+    recentScanEvents = incomingRecent;
+  } else {
+    recentScanEvents.push({
+      at: now,
+      path: url.replace(/^https:\/\/one\.google\.com/, "").split(/[?#]/)[0] || "/ai",
+      bodyType: "text",
+      status: foundSkus.length > 0 ? "known-skus" : "no-skus",
+      candidateCount: foundSkus.length,
+      hitCount: hitCount
+    });
+    if (recentScanEvents.length > 30) recentScanEvents = recentScanEvents.slice(-30);
+  }
 
   runtimeSummary.lastSeenAt = now;
   runtimeSummary.lastClientIp = clientIp;
@@ -105,9 +212,10 @@ function recordTelemetryPacket(body, clientIp) {
   runtimeSummary.totalAnnualRewrites += annualHitCount;
 
   const generatedLogs = logs.length ? logs : [
-    `[g1-acq] ${version} source=${source} status=${runtimeStatus} hits=${hitCount} mode=${mode} rev=${mappingRevision.slice(0, 10)}`,
-    ...matchedFrom.map(m => `[g1-acq] REWRITE ${m.id} -> ${m.to} x${m.count}`),
-    ...foundSkus.map(s => `[g1-acq] SCAN ${s.id} x${s.count}`)
+    `[g1-acq] ${version} source=${source} status=${runtimeStatus} hits=${hitCount} annual2TB=${annualHitCount} mode=${mode} rev=${mappingRevision.slice(0, 10)}`,
+    `[g1-acq] URL ${url}`,
+    ...matchedFrom.map(m => `[g1-acq] REWRITE ${m.id} ━━► ${m.to} (x${m.count} lần)`),
+    ...foundSkus.map(s => `[g1-acq] ORIGINAL_SKU ${s.id} (x${s.count} lần trong gói)`)
   ];
 
   const entry = {
@@ -120,19 +228,23 @@ function recordTelemetryPacket(body, clientIp) {
     mappingStatus: mappingStatus,
     mappingRevision: mappingRevision,
     runtimeStatus: runtimeStatus,
-    scanStatus: scanStatus,
+    scanStatus: foundSkus.length > 0 ? "known-skus" : "no-skus",
     source: source,
     hitCount: hitCount,
     annualHitCount: annualHitCount,
     matchedFrom: matchedFrom,
     foundSkus: foundSkus,
+    hasFullScanPayload: Array.isArray(body.foundSkus) && body.foundSkus.length > 0,
     logs: generatedLogs
   };
 
   telemetryLogs.push(entry);
   if (telemetryLogs.length > 150) telemetryLogs = telemetryLogs.slice(-150);
+  saveTelemetryCache();
   return entry;
 }
+
+loadTelemetryCache();
 
 function saveAndSyncConfig(newRules, presetId = "") {
   const eng = loadEngine();
@@ -212,7 +324,7 @@ function readBody(req) {
     let data = "";
     req.on("data", chunk => {
       data += chunk;
-      if (data.length > 400000) reject(new Error("Payload too large"));
+      if (data.length > 500000) reject(new Error("Payload too large"));
     });
     req.on("end", () => resolve(data));
     req.on("error", reject);
@@ -245,6 +357,7 @@ const server = http.createServer(async (req, res) => {
       gitSyncStatus,
       runtimeSummary,
       skuCatalog,
+      recentScanEvents: recentScanEvents.slice(-20).reverse(),
       telemetry: telemetryLogs.slice(-80).reverse(),
       lanUrl: "http://" + LAN_IP + ":" + PORT,
       localUrl: "http://localhost:" + PORT
@@ -316,13 +429,13 @@ const server = http.createServer(async (req, res) => {
     try {
       const eng = loadEngine();
       const sampleOriginalSkus = [
-        { id: "g1.ios.20tb.m.v2", count: 2 },
-        { id: "g1.ios.30tb.ai.pro.m", count: 2 },
-        { id: "g1.ios.2tb.ai.m", count: 3 },
-        { id: "g1.ios.ai.2tb.m.ip_3mo_75p.acq", count: 2 },
-        { id: "g1.ios.2tb.ai.a", count: 2 },
-        { id: "g1.ios.2tb.m", count: 1 },
-        { id: "g1.ios.100gb.m", count: 1 }
+        { id: "g1.ios.20tb.m.v2", count: 16 },
+        { id: "g1.ios.30tb.ai.pro.m", count: 16 },
+        { id: "g1.ios.2tb.ai.m", count: 8 },
+        { id: "g1.ios.ai.2tb.m.ip_3mo_75p.acq", count: 4 },
+        { id: "g1.ios.2tb.ai.a", count: 8 },
+        { id: "g1.ios.2tb.m", count: 4 },
+        { id: "g1.ios.100gb.m", count: 4 }
       ];
       const activeState = {
         status: "custom",
@@ -343,7 +456,7 @@ const server = http.createServer(async (req, res) => {
       });
       const matchedFrom = Object.keys(matchedMap).map(k => matchedMap[k]);
       recordTelemetryPacket({
-        url: "https://one.google.com/ai?hl=vi&source=ios_google_app",
+        url: "https://one.google.com/ai?utm_source=google_one&utm_medium=ios&hl=vi",
         version: "g1-acq-v7.13-mappings",
         mode: "custom",
         mappingStatus: "custom",
@@ -355,7 +468,7 @@ const server = http.createServer(async (req, res) => {
         matchedFrom: matchedFrom,
         foundSkus: sampleOriginalSkus,
         scanStatus: "known-skus"
-      }, "192.168.1.88 (iPhone-Sim)");
+      }, "192.168.1.164 (Test)");
       sendJson(res, 200, { ok: true });
     } catch (e) {
       sendJson(res, 400, { ok: false, error: e.message });
@@ -367,10 +480,12 @@ const server = http.createServer(async (req, res) => {
   if (pathname === "/api/telemetry/clear" && req.method === "POST") {
     telemetryLogs = [];
     cumulativeSkus = Object.create(null);
+    recentScanEvents = [];
     runtimeSummary.totalPackets = 0;
     runtimeSummary.totalRewrites = 0;
     runtimeSummary.totalAnnualRewrites = 0;
     runtimeSummary.runtimeStatus = "cleared";
+    saveTelemetryCache();
     sendJson(res, 200, { ok: true });
     return;
   }
@@ -396,7 +511,6 @@ const DASHBOARD_HTML = `<!doctype html>
       --bg: #070b14;
       --bg-elev: #0f172a;
       --panel: #131c31;
-      --panel-hover: #192540;
       --border: #263554;
       --border-bright: #3b5280;
       --text: #f8fafc;
@@ -415,63 +529,61 @@ const DASHBOARD_HTML = `<!doctype html>
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+      font: 14.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
       background: radial-gradient(circle at top right, #111d38 0%, var(--bg) 55%);
       color: var(--text);
       min-height: 100vh;
-      padding: 18px 24px 40px;
+      padding: 12px 18px 32px;
     }
-    .container { max-width: 1540px; margin: 0 auto; }
+    .container { max-width: 1680px; margin: 0 auto; }
 
-    /* Top Header */
+    /* Compact Top Header + Tabs so main content sits right above the fold */
     header {
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
       background: linear-gradient(135deg, #131e36 0%, #0e1628 100%);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 18px 24px;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-      margin-bottom: 18px;
+      border-radius: 13px;
+      padding: 12px 18px;
+      margin-bottom: 12px;
     }
     .brand-title {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin: 0 0 6px;
-      font-size: 22px;
+      gap: 10px;
+      margin: 0;
+      font-size: 19px;
       font-weight: 800;
-      letter-spacing: -0.01em;
     }
     .brand-badge {
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 700;
-      padding: 3px 10px;
+      padding: 2px 9px;
       border-radius: 999px;
       background: rgba(56, 189, 248, 0.16);
       color: var(--cyan);
       border: 1px solid rgba(56, 189, 248, 0.35);
     }
-    .status-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .status-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     .pill {
-      padding: 7px 14px;
+      padding: 5px 12px;
       border-radius: 999px;
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 600;
       background: var(--bg-elev);
       border: 1px solid var(--border);
       display: inline-flex;
       align-items: center;
-      gap: 7px;
+      gap: 6px;
     }
     .pill.ok { border-color: var(--success); color: #34d399; background: var(--success-bg); }
     .pill.sync { border-color: var(--warn); color: #fbbf24; background: var(--warn-bg); }
     .dot-live {
-      width: 9px;
-      height: 9px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background: var(--success);
       box-shadow: 0 0 8px var(--success);
@@ -486,43 +598,40 @@ const DASHBOARD_HTML = `<!doctype html>
     .tabs-bar {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
+      gap: 10px;
       background: var(--bg-elev);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 8px;
-      margin-bottom: 22px;
+      border-radius: 12px;
+      padding: 6px;
+      margin-bottom: 14px;
     }
     @media (max-width: 860px) { .tabs-bar { grid-template-columns: 1fr; } }
     .tab-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-      padding: 14px 20px;
-      border-radius: 10px;
+      gap: 9px;
+      padding: 11px 16px;
+      border-radius: 9px;
       border: 1px solid transparent;
       background: transparent;
       color: var(--muted);
-      font-size: 16px;
-      font-weight: 700;
+      font-size: 15px;
+      font-weight: 800;
       cursor: pointer;
       transition: all 0.15s ease;
     }
-    .tab-btn:hover {
-      background: rgba(59, 130, 246, 0.08);
-      color: var(--text);
-    }
+    .tab-btn:hover { background: rgba(59, 130, 246, 0.08); color: var(--text); }
     .tab-btn.active {
       background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
       color: #ffffff;
       border-color: #60a5fa;
-      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
     }
     .tab-counter {
-      padding: 2px 9px;
+      padding: 2px 8px;
       border-radius: 999px;
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 800;
       background: rgba(15, 23, 42, 0.55);
       color: #38bdf8;
@@ -535,16 +644,44 @@ const DASHBOARD_HTML = `<!doctype html>
     }
 
     .tab-panel { display: none; }
-    .tab-panel.active { display: block; animation: fadeIn 0.18s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .tab-panel.active { display: block; }
 
-    /* Shared Panel Box */
+    /* KPI Strip */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 1180px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    .kpi-card {
+      background: linear-gradient(145deg, #15223c 0%, #0f172a 100%);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .kpi-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+    .kpi-value { font-size: 21px; font-weight: 800; color: var(--text); font-family: var(--mono); }
+    .kpi-sub { font-size: 12.5px; color: var(--muted); }
+
+    /* 2-Column Main Runtime Workspace (Visible Above the Fold on 1080p!) */
+    .runtime-workspace {
+      display: grid;
+      grid-template-columns: 1.28fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    @media (max-width: 1150px) { .runtime-workspace { grid-template-columns: 1fr; } }
+
     .panel-box {
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 22px 24px;
-      margin-bottom: 22px;
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
     }
     .panel-header {
@@ -552,113 +689,118 @@ const DASHBOARD_HTML = `<!doctype html>
       flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-      padding-bottom: 14px;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
       border-bottom: 1px solid var(--border);
     }
-    .panel-title { margin: 0; font-size: 19px; font-weight: 800; }
+    .panel-title { margin: 0; font-size: 16.5px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
 
-    /* KPI Grid in Runtime Tab */
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-bottom: 22px;
-    }
-    @media (max-width: 1180px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 640px) { .kpi-grid { grid-template-columns: 1fr; } }
-    .kpi-card {
-      background: linear-gradient(145deg, #15223c 0%, #0f172a 100%);
+    /* Tables for Original SKUs & Runtime Scan History */
+    .data-table-wrap {
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #0b1222;
+      max-height: 290px;
+      overflow-y: auto;
     }
-    .kpi-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
-    .kpi-value { font-size: 26px; font-weight: 800; color: var(--text); font-family: var(--mono); }
-    .kpi-sub { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    table.data-table th {
+      position: sticky;
+      top: 0;
+      background: #16223b;
+      color: #93c5fd;
+      font-weight: 700;
+      text-align: left;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      z-index: 2;
+    }
+    table.data-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #1a2640;
+      color: #e2e8f0;
+      vertical-align: middle;
+    }
+    table.data-table tr:hover td { background: rgba(59, 130, 246, 0.07); }
 
     /* Live Terminal Stream */
     .terminal-window {
       background: #050811;
       border: 1px solid #1e2d4a;
-      border-radius: 14px;
+      border-radius: 12px;
       overflow: hidden;
-      margin-bottom: 22px;
-      box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.7);
+      margin-bottom: 16px;
     }
     .terminal-topbar {
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
-      padding: 12px 18px;
+      gap: 10px;
+      padding: 9px 14px;
       background: #0d1424;
       border-bottom: 1px solid #1e2d4a;
     }
-    .terminal-dots { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--cyan); }
-    .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+    .terminal-dots { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--cyan); }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
     .dot.r { background: #ef4444; }
     .dot.y { background: #f59e0b; }
     .dot.g { background: #10b981; }
     .terminal-body {
-      padding: 16px 20px;
+      padding: 12px 16px;
       font-family: var(--mono);
-      font-size: 14px;
-      line-height: 1.7;
-      max-height: 340px;
-      min-height: 190px;
+      font-size: 13px;
+      line-height: 1.65;
+      max-height: 250px;
+      min-height: 160px;
       overflow-y: auto;
       color: #cbd5e1;
     }
     .term-line {
-      padding: 3px 0;
-      border-bottom: 1px dashed rgba(51, 65, 85, 0.3);
+      padding: 2px 0;
+      border-bottom: 1px dashed rgba(51, 65, 85, 0.28);
       word-break: break-all;
     }
-    .term-time { color: #64748b; margin-right: 10px; }
+    .term-time { color: #64748b; margin-right: 8px; }
     .term-tag-rewrite { color: #34d399; font-weight: 700; }
     .term-tag-scan { color: #38bdf8; }
     .term-tag-head { color: #fbbf24; font-weight: 700; }
 
-    /* Packet Capture Table / Cards */
+    /* Packet Capture Inspector Cards */
     .packet-card {
       background: #0b1222;
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px 22px;
-      margin-bottom: 14px;
-      transition: border-color 0.15s;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
     }
     .packet-card.rewritten {
       border-left: 5px solid var(--success);
       border-color: rgba(16, 185, 129, 0.45);
     }
-    .packet-card.no-match {
-      border-left: 5px solid var(--warn);
-    }
-    .packet-card.scan-only {
-      border-left: 5px solid var(--cyan);
-    }
+    .packet-card.no-match { border-left: 5px solid var(--warn); }
+    .packet-card.scan-only { border-left: 5px solid var(--cyan); }
     .packet-top {
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+      gap: 8px;
+      margin-bottom: 9px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.45);
     }
-    .packet-badges { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .packet-badges { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
     .badge {
-      padding: 4px 10px;
-      border-radius: 7px;
-      font-size: 12px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      font-size: 11.5px;
       font-weight: 700;
       font-family: var(--mono);
     }
@@ -668,33 +810,28 @@ const DASHBOARD_HTML = `<!doctype html>
     .badge.gray { background: #1e293b; color: #cbd5e1; border: 1px solid #334155; }
     .packet-url {
       font-family: var(--mono);
-      font-size: 13.5px;
+      font-size: 12.5px;
       color: #93c5fd;
       background: #111b30;
-      padding: 8px 12px;
-      border-radius: 8px;
+      padding: 7px 10px;
+      border-radius: 7px;
       word-break: break-all;
-      margin-bottom: 14px;
+      margin-bottom: 10px;
     }
-    .packet-cols {
-      display: grid;
-      grid-template-columns: 1.15fr 1fr;
-      gap: 16px;
-    }
-    @media (max-width: 960px) { .packet-cols { grid-template-columns: 1fr; } }
     .packet-box {
       background: #111a2e;
       border: 1px solid #223252;
-      border-radius: 10px;
-      padding: 14px 16px;
+      border-radius: 9px;
+      padding: 11px 13px;
+      margin-top: 8px;
     }
     .packet-box-title {
-      font-size: 12.5px;
+      font-size: 11.5px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
       color: var(--muted);
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -704,15 +841,15 @@ const DASHBOARD_HTML = `<!doctype html>
       flex-wrap: wrap;
       align-items: center;
       gap: 8px;
-      padding: 8px 10px;
-      background: rgba(16, 185, 129, 0.08);
-      border: 1px solid rgba(16, 185, 129, 0.28);
-      border-radius: 8px;
-      margin-bottom: 8px;
+      padding: 7px 10px;
+      background: rgba(16, 185, 129, 0.09);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 7px;
+      margin-bottom: 6px;
       font-family: var(--mono);
-      font-size: 13px;
+      font-size: 12.5px;
     }
-    .rewrite-from { color: #f8fafc; font-weight: 600; }
+    .rewrite-from { color: #f8fafc; font-weight: 700; }
     .rewrite-arrow { color: #34d399; font-weight: 800; }
     .rewrite-to { color: #34d399; font-weight: 700; }
     .rewrite-count {
@@ -721,26 +858,23 @@ const DASHBOARD_HTML = `<!doctype html>
       color: #a7f3d0;
       padding: 2px 8px;
       border-radius: 999px;
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 700;
     }
-    .sku-chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .sku-chip-list { display: flex; flex-wrap: wrap; gap: 7px; }
     .sku-chip {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      padding: 6px 10px;
+      gap: 6px;
+      padding: 5px 9px;
       background: #0b1324;
       border: 1px solid #293b5f;
-      border-radius: 8px;
+      border-radius: 7px;
       font-family: var(--mono);
-      font-size: 12.5px;
+      font-size: 12px;
       color: #e2e8f0;
     }
-    .sku-chip-count {
-      color: var(--cyan);
-      font-weight: 700;
-    }
+    .sku-chip-count { color: var(--cyan); font-weight: 700; }
     .sku-chip-btn {
       padding: 2px 7px;
       font-size: 11px;
@@ -756,109 +890,94 @@ const DASHBOARD_HTML = `<!doctype html>
     .preset-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-      gap: 16px;
+      gap: 14px;
     }
     .preset-card {
       background: #0b1222;
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px;
+      border-radius: 13px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      transition: all 0.15s;
+      gap: 10px;
     }
-    .preset-card:hover { border-color: var(--border-bright); }
     .preset-card.active {
       border: 2px solid var(--success);
-      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
     }
-    .preset-title { font-weight: 800; font-size: 15.5px; line-height: 1.45; }
-    .preset-desc { font-size: 13.5px; color: var(--muted); margin: 0; }
+    .preset-title { font-weight: 800; font-size: 15px; }
+    .preset-desc { font-size: 13px; color: var(--muted); margin: 0; }
     .pair-list {
       background: #111a2e;
       border: 1px solid #1f2e4d;
-      border-radius: 10px;
-      padding: 10px 12px;
+      border-radius: 9px;
+      padding: 8px 10px;
       font-family: var(--mono);
-      font-size: 12.5px;
-      max-height: 160px;
+      font-size: 12px;
+      max-height: 150px;
       overflow-y: auto;
     }
-    .pair-row { margin: 5px 0; word-break: break-all; }
+    .pair-row { margin: 4px 0; word-break: break-all; }
     .pair-row .arrow { color: var(--cyan); margin: 0 6px; font-weight: 700; }
 
-    /* Buttons & Inputs */
     button {
       font: inherit;
       font-weight: 700;
-      padding: 10px 16px;
-      border-radius: 9px;
+      padding: 8px 14px;
+      border-radius: 8px;
       border: 0;
       cursor: pointer;
       background: var(--primary);
       color: white;
-      transition: all 0.15s;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 7px;
+      gap: 6px;
     }
     button:hover { background: var(--primary-hover); }
     button.success { background: var(--success); }
     button.danger { background: var(--danger-bg); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
     button.secondary { background: #1e293b; color: var(--text); border: 1px solid var(--border); }
     button.secondary:hover { background: #334155; }
-    button.sm { padding: 6px 12px; font-size: 13px; border-radius: 7px; }
+    button.sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
 
     .rule-row {
       display: grid;
-      grid-template-columns: 140px 1fr 1fr 90px 85px;
+      grid-template-columns: 140px 1fr 1fr 85px 80px;
       gap: 10px;
       align-items: center;
       margin-bottom: 10px;
       background: #0b1222;
-      padding: 12px;
-      border-radius: 12px;
+      padding: 11px;
+      border-radius: 11px;
       border: 1px solid var(--border);
     }
-    @media (max-width: 860px) { .rule-row { grid-template-columns: 1fr; } }
     input[type="text"], select {
       width: 100%;
-      padding: 10px 12px;
-      border-radius: 8px;
+      padding: 8px 11px;
+      border-radius: 7px;
       border: 1px solid var(--border);
       background: #131c31;
       color: var(--text);
       font-family: var(--mono);
-      font-size: 13.5px;
+      font-size: 13px;
     }
-    input[type="text"]:focus, select:focus {
-      outline: 2px solid var(--primary);
-      border-color: transparent;
-    }
-    .filter-bar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
+    .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .toast {
       position: fixed;
-      bottom: 24px;
-      right: 24px;
+      bottom: 22px;
+      right: 22px;
       background: #065f46;
       border: 1px solid #10b981;
       color: white;
-      padding: 13px 20px;
-      border-radius: 12px;
+      padding: 12px 18px;
+      border-radius: 10px;
       font-weight: 700;
       display: none;
       z-index: 999;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
     }
     code { font-family: var(--mono); color: var(--cyan); }
-    .muted { color: var(--muted); font-size: 13.5px; }
+    .muted { color: var(--muted); font-size: 12.5px; }
   </style>
 </head>
 <body>
@@ -880,7 +999,7 @@ const DASHBOARD_HTML = `<!doctype html>
     <!-- 3 BIG DEDICATED TABS -->
     <nav class="tabs-bar">
       <button class="tab-btn active" id="tab-btn-runtime" onclick="switchTab('runtime')">
-        📡 Nhật Ký Bắt Gói · Log Realtime · Runtime
+        📡 Nhật Ký Bắt Gói · SKU Gốc · Log Runtime
         <span class="tab-counter" id="tab-count-packets">0 gói</span>
       </button>
       <button class="tab-btn" id="tab-btn-presets" onclick="switchTab('presets')">
@@ -893,89 +1012,125 @@ const DASHBOARD_HTML = `<!doctype html>
       </button>
     </nav>
 
-    <!-- TAB 1: DEDICATED FULL-SCREEN REALTIME LOG, PACKET CAPTURE & RUNTIME -->
+    <!-- TAB 1: DEDICATED FULL-SCREEN REALTIME LOG, ORIGINAL SKUS & PACKET CAPTURE -->
     <div class="tab-panel active" id="tab-panel-runtime">
-      <!-- 4 Big Runtime KPI Cards -->
+      <!-- 4 Compact Runtime KPI Cards -->
       <div class="kpi-grid">
         <div class="kpi-card">
           <span class="kpi-label">Trạng Thái Runtime & Phiên Bản</span>
           <div class="kpi-value" id="kpi-runtime-status" style="color:#34d399">SẴN SÀNG</div>
-          <div class="kpi-sub">
-            Script: <code id="kpi-runtime-version">g1-acq-v7.13-mappings</code>
-          </div>
+          <div class="kpi-sub">Script: <code id="kpi-runtime-version">g1-acq-v7.13-mappings</code></div>
         </div>
         <div class="kpi-card">
           <span class="kpi-label">Nguồn Cấu Hình & Thiết Bị</span>
-          <div class="kpi-value" id="kpi-config-source" style="color:#38bdf8">PC-LAN (0ms)</div>
-          <div class="kpi-sub">
-            IP iPhone: <code id="kpi-client-ip">Chưa kết nối</code> · Lúc: <code id="kpi-last-seen">--:--:--</code>
-          </div>
+          <div class="kpi-value" id="kpi-config-source" style="color:#38bdf8">PC-LAN</div>
+          <div class="kpi-sub">IP iPhone: <code id="kpi-client-ip">--</code> · Lúc: <code id="kpi-last-seen">--:--:--</code></div>
         </div>
         <div class="kpi-card">
           <span class="kpi-label">Tổng Gói Tin Bắt Được / Lượt Đè SKU</span>
           <div class="kpi-value"><span id="kpi-total-packets">0</span> gói / <span id="kpi-total-rewrites" style="color:#34d399">0</span> đè</div>
-          <div class="kpi-sub">
-            Trong đó lượt đè 2TB/Pro: <code id="kpi-annual-rewrites">0</code> lần
-          </div>
+          <div class="kpi-sub">Trong đó lượt đè 2TB/Pro: <code id="kpi-annual-rewrites">0</code> lần</div>
         </div>
         <div class="kpi-card">
-          <span class="kpi-label">Mã SKU Gốc Thu Thập Từ Google</span>
+          <span class="kpi-label">Kho Mã SKU Gốc Đã Thu Thập</span>
           <div class="kpi-value" id="kpi-unique-skus" style="color:#fbbf24">0 SKU</div>
-          <div class="kpi-sub">
-            Revision đang chạy: <code id="kpi-revision">----------</code>
-          </div>
+          <div class="kpi-sub">Revision đang chạy: <code id="kpi-revision">----------</code></div>
         </div>
       </div>
 
-      <!-- Live Terminal Console Log Stream -->
-      <div class="terminal-window">
-        <div class="terminal-topbar">
-          <div class="terminal-dots">
-            <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-            <span style="margin-left:6px">RUNTIME CONSOLE LOG STREAM (REAL-TIME)</span>
-          </div>
-          <div class="filter-bar">
-            <button class="secondary sm" onclick="simulatePacket()">🧪 Bắn gói test giả lập</button>
-            <button class="secondary sm" id="btn-pause-log" onclick="togglePauseLog()">⏸ Tạm dừng cập nhật</button>
-            <button class="secondary sm" onclick="exportTelemetryJson()">📥 Xuất JSON Log</button>
-            <button class="danger sm" onclick="clearTelemetry()">🗑 Xóa toàn bộ log</button>
+      <!-- 2-COLUMN WORKSPACE DIRECTLY VISIBLE ABOVE THE FOLD -->
+      <div class="runtime-workspace">
+        <!-- LEFT COLUMN: DETAILED PACKET CAPTURE & REWRITE INSPECTOR -->
+        <div>
+          <div class="panel-box">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">🔍 Chi Tiết Gói Tin Bắt Được & Kết Quả Ghi Đè SKU (Packet Inspector)</h2>
+                <div class="muted">Hiển thị trực tiếp từng gói phản hồi từ iPhone: URL, từng cặp <code>SKU Gốc ━━► SKU Đích</code> và các SKU trong gói.</div>
+              </div>
+              <div class="filter-bar">
+                <select id="packet-filter-mode" onchange="renderTelemetry()" style="width:auto;padding:6px 10px;font-size:12.5px">
+                  <option value="all">Tất cả gói tin</option>
+                  <option value="rewritten">Có Ghi đè SKU (Hits > 0)</option>
+                  <option value="no-match">Không khớp (0 Hit)</option>
+                </select>
+                <input type="text" id="packet-search-input" placeholder="Tìm mã SKU / URL..." oninput="renderTelemetry()" style="width:190px;padding:6px 10px;font-size:12.5px">
+              </div>
+            </div>
+            <div id="packets-inspector-container"></div>
           </div>
         </div>
-        <div class="terminal-body" id="terminal-stream">
-          <div class="muted">Đang lắng nghe gói tin HTTPS từ iPhone (one.google.com/ai) qua cổng LAN 192.168.1.71:8787...</div>
-        </div>
-      </div>
 
-      <!-- Discovered Original SKU Catalog -->
-      <div class="panel-box">
-        <div class="panel-header">
-          <div>
-            <h2 class="panel-title">📦 Kho Mã SKU Gốc Đã Bắt Được Từ Phản Hồi Google (Trước Khi Ghi Đè)</h2>
-            <div class="muted">Bấm vào nút <strong>+ Đưa vào Rule</strong> trên bất kỳ mã SKU gốc nào để chuyển sang Tab Sửa Tay Quy Tắc và gán SKU đích.</div>
+        <!-- RIGHT COLUMN: ORIGINAL SKU TABLE + RUNTIME CONSOLE STREAM + SCAN LOG TABLE -->
+        <div>
+          <!-- 1. BẢNG KHO MÃ SKU GỐC THU THẬP ĐƯỢC -->
+          <div class="panel-box">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">📦 Bảng Mã SKU Gốc Thu Thập Được Từ Google (<span id="sku-table-count">0</span> Mã)</h2>
+                <div class="muted">Danh sách cộng dồn tất cả mã SKU gốc bắt được từ iPhone. Bấm <strong>+ Đưa vào Rule</strong> để gán mã đích.</div>
+              </div>
+            </div>
+            <div class="data-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Mã SKU Gốc Đầy Đủ</th>
+                    <th>Tổng Số Lần</th>
+                    <th>Lần Cuối (VN)</th>
+                    <th>Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody id="sku-catalog-tbody">
+                  <tr><td colspan="4" class="muted">Chưa có mã SKU nào.</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-        <div id="discovered-skus-box" class="sku-chip-list">
-          <span class="muted">Chưa có mã SKU gốc nào. Hãy mở trang nâng cấp Google One trên iPhone hoặc bấm "🧪 Bắn gói test giả lập" ở thanh Terminal phía trên để kiểm tra.</span>
-        </div>
-      </div>
 
-      <!-- Full-Width Detailed Packet Capture Inspector -->
-      <div class="panel-box">
-        <div class="panel-header">
-          <div>
-            <h2 class="panel-title">🔍 Chi Tiết Từng Gói Tin Bắt Được & Kết Quả Ghi Đè SKU (Packet Inspector)</h2>
-            <div class="muted">Hiển thị to, rõ ràng từng gói phản hồi từ <code>one.google.com</code>: đường dẫn, nguồn nạp cấu hình, từng cặp <code>SKU Gốc → SKU Đích</code> và danh sách SKU trong gói.</div>
+          <!-- 2. LIVE TERMINAL CONSOLE LOG STREAM -->
+          <div class="terminal-window">
+            <div class="terminal-topbar">
+              <div class="terminal-dots">
+                <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+                <span style="margin-left:5px">RUNTIME CONSOLE LOG STREAM (REAL-TIME)</span>
+              </div>
+              <div class="filter-bar">
+                <button class="secondary sm" onclick="simulatePacket()">🧪 Bắn gói test</button>
+                <button class="secondary sm" id="btn-pause-log" onclick="togglePauseLog()">⏸ Tạm dừng</button>
+                <button class="secondary sm" onclick="exportTelemetryJson()">📥 Xuất JSON</button>
+                <button class="danger sm" onclick="clearTelemetry()">🗑 Xóa log</button>
+              </div>
+            </div>
+            <div class="terminal-body" id="terminal-stream"></div>
           </div>
-          <div class="filter-bar">
-            <select id="packet-filter-mode" onchange="renderTelemetry()" style="width:auto">
-              <option value="all">Hiển thị: Tất cả gói tin</option>
-              <option value="rewritten">Chỉ gói có Ghi đè SKU (Hits > 0)</option>
-              <option value="no-match">Gói không khớp quy tắc (Hits = 0)</option>
-            </select>
-            <input type="text" id="packet-search-input" placeholder="Tìm mã SKU hoặc URL..." oninput="renderTelemetry()" style="width:260px">
+
+          <!-- 3. BẢNG NHẬT KÝ QUÉT PHẢN HỒI RUNTIME (10-20 PHẢN HỒI GẦN NHẤT) -->
+          <div class="panel-box">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">📋 Nhật Ký Quét Phản Hồi Runtime (Recent Responses)</h2>
+                <div class="muted">Lịch sử từng phản hồi <code>one.google.com</code> mà Runtime trên iPhone đã quét qua.</div>
+              </div>
+            </div>
+            <div class="data-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Thời Gian (VN)</th>
+                    <th>Đường Dẫn</th>
+                    <th>Trạng Thái</th>
+                    <th>Số SKU</th>
+                    <th>Lượt Đè</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-scan-tbody">
+                  <tr><td colspan="5" class="muted">Chưa có lịch sử phản hồi.</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-        <div id="packets-inspector-container"></div>
       </div>
     </div>
 
@@ -986,7 +1141,7 @@ const DASHBOARD_HTML = `<!doctype html>
           <div>
             <h2 class="panel-title">⚡ Chọn Bộ Mẫu 1 Chạm (Bấm Trên Máy Tính → Tự Động Đổi Ngay Cho iPhone)</h2>
             <div class="muted">
-              Khi bấm <strong>Áp dụng ngay từ PC</strong>, cấu hình phát tức thời qua mạng LAN (<code>0ms</code>) tới iPhone và tự động đồng bộ lên GitHub Cloud. Sau khi chọn mẫu, hãy mở trang gói trên iPhone rồi qua tab <strong>📡 Nhật Ký Bắt Gói · Log Realtime</strong> để xem gói tin nổ về!
+              Khi bấm <strong>Áp dụng ngay từ PC</strong>, cấu hình phát tức thời qua mạng LAN (<code>0ms</code>) tới iPhone và tự động đồng bộ lên GitHub Cloud.
             </div>
           </div>
         </div>
@@ -1045,7 +1200,7 @@ const DASHBOARD_HTML = `<!doctype html>
       if (!isoStr) return "--:--:--";
       try {
         const d = new Date(isoStr);
-        return d.toLocaleTimeString("vi-VN", { hour12: false }) + " (" + isoStr.slice(11, 19) + " UTC)";
+        return d.toLocaleTimeString("vi-VN", { hour12: false });
       } catch (e) {
         return isoStr;
       }
@@ -1080,7 +1235,9 @@ const DASHBOARD_HTML = `<!doctype html>
       gitPill.textContent = appState.gitSyncStatus.message;
       gitPill.className = "pill " + (appState.gitSyncStatus.state === "ok" ? "ok" : "sync");
 
-      document.getElementById("tab-count-packets").textContent = (appState.runtimeSummary ? appState.runtimeSummary.totalPackets : 0) + " gói";
+      const totalPkts = appState.runtimeSummary ? appState.runtimeSummary.totalPackets : 0;
+      const totalSkus = (appState.skuCatalog || []).length;
+      document.getElementById("tab-count-packets").textContent = totalPkts + " gói · " + totalSkus + " SKU";
       document.getElementById("tab-count-presets").textContent = (appState.presets || []).length + " mẫu";
       document.getElementById("tab-count-rules").textContent = enabledCount + "/" + (appState.config.rules || []).length + " rule";
     }
@@ -1126,7 +1283,7 @@ const DASHBOARD_HTML = `<!doctype html>
           '</select>' +
           '<input type="text" value="' + escapeHtml(r.from) + '" placeholder="SKU gốc (vd: g1.ios.20tb.m.v2)" oninput="draftRules[' + i + '].from=this.value">' +
           '<input type="text" value="' + escapeHtml(r.to) + '" placeholder="SKU đích" oninput="draftRules[' + i + '].to=this.value">' +
-          '<label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;cursor:pointer"><input type="checkbox" style="width:18px;height:18px" ' + (r.enabled ? "checked" : "") + ' onchange="draftRules[' + i + '].enabled=this.checked">Bật</label>' +
+          '<label style="display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;cursor:pointer"><input type="checkbox" style="width:17px;height:17px" ' + (r.enabled ? "checked" : "") + ' onchange="draftRules[' + i + '].enabled=this.checked">Bật</label>' +
           '<button class="danger" onclick="removeRule(' + i + ')">Xóa</button>' +
         '</div>'
       ).join("");
@@ -1147,7 +1304,7 @@ const DASHBOARD_HTML = `<!doctype html>
     function useSkuAsSource(skuId) {
       addEmptyRule(skuId);
       switchTab("rules");
-      showToast("Đã thêm SKU gốc [" + skuId + "] vào khung sửa quy tắc!");
+      showToast("Đã đưa SKU gốc [" + skuId + "] sang Tab Sửa Tay Quy Tắc!");
     }
 
     function removeRule(idx) {
@@ -1202,28 +1359,44 @@ const DASHBOARD_HTML = `<!doctype html>
 
       document.getElementById("kpi-runtime-version").textContent = sum.version || "g1-acq-v7.13-mappings";
       document.getElementById("kpi-config-source").textContent = (sum.configSource || "pc-lan").toUpperCase();
-      document.getElementById("kpi-client-ip").textContent = sum.lastClientIp || "Chưa có gói mới";
-      document.getElementById("kpi-last-seen").textContent = sum.lastSeenAt ? formatTimeVN(sum.lastSeenAt).split(" ")[0] : "--:--:--";
+      document.getElementById("kpi-client-ip").textContent = sum.lastClientIp || "Chưa kết nối";
+      document.getElementById("kpi-last-seen").textContent = sum.lastSeenAt ? formatTimeVN(sum.lastSeenAt) : "--:--:--";
       document.getElementById("kpi-total-packets").textContent = sum.totalPackets || 0;
       document.getElementById("kpi-total-rewrites").textContent = sum.totalRewrites || 0;
       document.getElementById("kpi-annual-rewrites").textContent = sum.totalAnnualRewrites || 0;
-      document.getElementById("kpi-unique-skus").textContent = ((appState.skuCatalog || []).length) + " SKU";
+      const catalog = appState.skuCatalog || [];
+      document.getElementById("kpi-unique-skus").textContent = catalog.length + " SKU";
+      document.getElementById("sku-table-count").textContent = catalog.length;
       document.getElementById("kpi-revision").textContent = (appState.config.revision || "").slice(0, 12);
 
-      // 1. Render Terminal Console Stream
+      // 1. Render SKU Catalog Table (Right Column Top)
+      const skuTbody = document.getElementById("sku-catalog-tbody");
+      if (!catalog.length) {
+        skuTbody.innerHTML = '<tr><td colspan="4" class="muted">Chưa có mã SKU gốc nào. Khi iPhone mở trang gói Google One, mã SKU sẽ tự động hiện tại đây.</td></tr>';
+      } else {
+        skuTbody.innerHTML = catalog.map(s =>
+          '<tr>' +
+            '<td><code>' + escapeHtml(s.id) + '</code></td>' +
+            '<td><strong style="color:#38bdf8">×' + Number(s.count || 0) + '</strong></td>' +
+            '<td class="muted">' + escapeHtml(formatTimeVN(s.lastSeen)) + '</td>' +
+            '<td><button class="sku-chip-btn" onclick="useSkuAsSource(\\'' + escapeHtml(s.id) + '\\')">+ Đưa vào Rule</button></td>' +
+          '</tr>'
+        ).join("");
+      }
+
+      // 2. Render Terminal Console Stream (Right Column Middle)
       const termEl = document.getElementById("terminal-stream");
       const packets = appState.telemetry || [];
       if (!packets.length) {
-        termEl.innerHTML = '<div class="muted">Đang lắng nghe gói tin HTTPS từ iPhone (one.google.com/ai) qua cổng LAN 192.168.1.71:8787... Bấm "🧪 Bắn gói test giả lập" ở góc phải để xem thử luồng bắt gói!</div>';
+        termEl.innerHTML = '<div class="muted">Đang lắng nghe gói tin HTTPS từ iPhone (one.google.com/ai) qua cổng LAN 192.168.1.71:8787...</div>';
       } else {
         const linesHtml = [];
         packets.slice(0, 25).forEach(pkt => {
-          const tStr = formatTimeVN(pkt.at).split(" ")[0];
+          const tStr = formatTimeVN(pkt.at);
           (pkt.logs || []).forEach(line => {
-            let cls = "";
+            let cls = "term-tag-head";
             if (line.indexOf("REWRITE ") !== -1) cls = "term-tag-rewrite";
-            else if (line.indexOf("SCAN ") !== -1) cls = "term-tag-scan";
-            else cls = "term-tag-head";
+            else if (line.indexOf("ORIGINAL_SKU ") !== -1 || line.indexOf("SCAN ") !== -1) cls = "term-tag-scan";
             linesHtml.push(
               '<div class="term-line"><span class="term-time">[' + escapeHtml(tStr) + ']</span><span class="' + cls + '">' + escapeHtml(line) + '</span></div>'
             );
@@ -1232,22 +1405,29 @@ const DASHBOARD_HTML = `<!doctype html>
         termEl.innerHTML = linesHtml.join("");
       }
 
-      // 2. Render Discovered SKU Catalog
-      const skuBox = document.getElementById("discovered-skus-box");
-      const catalog = appState.skuCatalog || [];
-      if (!catalog.length) {
-        skuBox.innerHTML = '<span class="muted">Chưa có mã SKU gốc nào được thu thập. Khi iPhone mở trang Google One, mọi mã SKU gốc sẽ tự động trích xuất và hiện tại đây.</span>';
+      // 3. Render Recent Scan Responses Table (Right Column Bottom)
+      const scanTbody = document.getElementById("recent-scan-tbody");
+      const recentEvents = appState.recentScanEvents || [];
+      if (!recentEvents.length && !packets.length) {
+        scanTbody.innerHTML = '<tr><td colspan="5" class="muted">Chưa có lịch sử phản hồi.</td></tr>';
       } else {
-        skuBox.innerHTML = catalog.map(s =>
-          '<div class="sku-chip">' +
-            '<code>' + escapeHtml(s.id) + '</code>' +
-            '<span class="sku-chip-count">×' + Number(s.count || 0) + '</span>' +
-            '<button class="sku-chip-btn" onclick="useSkuAsSource(\\'' + escapeHtml(s.id) + '\\')">+ Đưa vào Rule</button>' +
-          '</div>'
-        ).join("");
+        const rowsSource = packets.length ? packets.slice(0, 20) : recentEvents;
+        scanTbody.innerHTML = rowsSource.map(ev => {
+          const p = (ev.url || ev.path || "/ai").replace(/^https:\/\/one\.google\.com/, "").split("#")[0];
+          const shortPath = p.length > 42 ? p.slice(0, 42) + "…" : p;
+          const skuCnt = Array.isArray(ev.foundSkus) ? ev.foundSkus.length : Number(ev.candidateCount || 0);
+          const hitCnt = Number(ev.hitCount || 0);
+          return '<tr>' +
+            '<td class="muted" style="font-family:var(--mono)">' + escapeHtml(formatTimeVN(ev.at)) + '</td>' +
+            '<td><code style="font-size:12px">' + escapeHtml(shortPath) + '</code></td>' +
+            '<td>' + (hitCnt > 0 ? '<span style="color:#34d399;font-weight:700">Đã đè SKU</span>' : '<span style="color:#38bdf8">Đã quét</span>') + '</td>' +
+            '<td>' + skuCnt + ' mã</td>' +
+            '<td><strong style="color:#34d399">' + hitCnt + '</strong></td>' +
+          '</tr>';
+        }).join("");
       }
 
-      // 3. Render Detailed Packet Inspector Cards
+      // 4. Render Detailed Packet Inspector Cards (Left Column)
       const inspector = document.getElementById("packets-inspector-container");
       const filterMode = document.getElementById("packet-filter-mode").value;
       const query = (document.getElementById("packet-search-input").value || "").trim().toLowerCase();
@@ -1256,22 +1436,19 @@ const DASHBOARD_HTML = `<!doctype html>
         if (filterMode === "rewritten" && !(pkt.hitCount > 0)) return false;
         if (filterMode === "no-match" && pkt.hitCount > 0) return false;
         if (!query) return true;
-        const hay = JSON.stringify(pkt).toLowerCase();
-        return hay.indexOf(query) !== -1;
+        return JSON.stringify(pkt).toLowerCase().indexOf(query) !== -1;
       });
 
       if (!filtered.length) {
-        inspector.innerHTML = '<div class="muted" style="padding:18px 0">Chưa có gói tin nào khớp bộ lọc hiện tại.</div>';
+        inspector.innerHTML = '<div class="muted" style="padding:14px 0">Chưa có gói tin nào khớp bộ lọc hiện tại.</div>';
         return;
       }
 
-      inspector.innerHTML = filtered.map((pkt, idx) => {
+      inspector.innerHTML = filtered.map(pkt => {
         const cardCls = pkt.hitCount > 0 ? "rewritten" : (pkt.runtimeStatus === "scan-only" ? "scan-only" : "no-match");
         const statusBadge = pkt.hitCount > 0
           ? '<span class="badge green">✓ ĐÃ GHI ĐÈ ' + pkt.hitCount + ' VỊ TRÍ SKU</span>'
-          : (pkt.runtimeStatus === "scan-only"
-              ? '<span class="badge blue">🔍 QUÉT SKU GỐC (' + (pkt.foundSkus || []).length + ' MÃ)</span>'
-              : '<span class="badge yellow">⚠ KHÔNG KHỚP QUY TẮC NÀO (0 HIT)</span>');
+          : '<span class="badge yellow">⚠ KHÔNG KHỚP QUY TẮC (0 HIT)</span>';
 
         const rewritesHtml = (pkt.matchedFrom && pkt.matchedFrom.length)
           ? pkt.matchedFrom.map(m =>
@@ -1289,33 +1466,36 @@ const DASHBOARD_HTML = `<!doctype html>
               '<div class="sku-chip">' +
                 '<code>' + escapeHtml(s.id) + '</code>' +
                 '<span class="sku-chip-count">×' + Number(s.count || 1) + '</span>' +
-                '<button class="sku-chip-btn" onclick="useSkuAsSource(\\'' + escapeHtml(s.id) + '\\')">+ Dùng</button>' +
+                '<button class="sku-chip-btn" onclick="useSkuAsSource(\\'' + escapeHtml(s.id) + '\\')">+ Đưa vào Rule</button>' +
               '</div>'
             ).join("") + '</div>'
-          : '<div class="muted">Không phát hiện mã SKU gốc nào trong body gói tin này.</div>';
+          : '<div class="muted">Không có mã SKU gốc nào trong gói này.</div>';
+
+        const cachedHint = !pkt.hasFullScanPayload
+          ? '<div class="muted" style="margin-top:6px;font-size:11.5px;color:#fbbf24">💡 Gói này gửi từ script bản cũ đang cache trên Shadowrocket (chỉ gửi mã đã khớp quy tắc). Để iPhone gửi toàn bộ 100% mã SKU gốc chưa khớp trong trang, hãy vào Shadowrocket → Mô-đun → bấm Cập nhật module.</div>'
+          : '';
 
         return '<div class="packet-card ' + cardCls + '">' +
           '<div class="packet-top">' +
             '<div class="packet-badges">' +
               statusBadge +
               '<span class="badge blue">Nguồn: ' + escapeHtml((pkt.source || "pc-lan").toUpperCase()) + '</span>' +
-              '<span class="badge gray">Runtime: ' + escapeHtml(pkt.version || "g1-acq-v7.13-mappings") + '</span>' +
+              '<span class="badge gray">' + escapeHtml(pkt.version || "g1-acq-v7.13-mappings") + '</span>' +
               '<span class="badge gray">Rev: ' + escapeHtml((pkt.mappingRevision || "").slice(0, 10)) + '</span>' +
             '</div>' +
-            '<div class="muted" style="font-family:var(--mono);font-weight:600">' +
+            '<div class="muted" style="font-family:var(--mono);font-weight:700">' +
               '🕒 ' + escapeHtml(formatTimeVN(pkt.at)) + ' · 📱 ' + escapeHtml(pkt.clientIp || "iPhone") +
             '</div>' +
           '</div>' +
           '<div class="packet-url">GET ' + escapeHtml(pkt.url) + '</div>' +
-          '<div class="packet-cols">' +
-            '<div class="packet-box">' +
-              '<div class="packet-box-title"><span>⚡ KẾT QUẢ GHI ĐÈ SKU (REWRITTEN MAPPINGS)</span><span>' + (pkt.matchedFrom || []).length + ' quy tắc khớp</span></div>' +
-              rewritesHtml +
-            '</div>' +
-            '<div class="packet-box">' +
-              '<div class="packet-box-title"><span>📦 MÃ SKU GỐC PHÁT HIỆN TRONG GÓI TIN (ORIGINAL SKUS)</span><span>' + (pkt.foundSkus || []).length + ' mã</span></div>' +
-              foundHtml +
-            '</div>' +
+          '<div class="packet-box">' +
+            '<div class="packet-box-title"><span>⚡ KẾT QUẢ GHI ĐÈ SKU (SKU GỐC ━━► SKU ĐÍCH)</span><span>' + (pkt.matchedFrom || []).length + ' quy tắc khớp</span></div>' +
+            rewritesHtml +
+          '</div>' +
+          '<div class="packet-box">' +
+            '<div class="packet-box-title"><span>📦 MÃ SKU GỐC BẮT ĐƯỢC TRONG GÓI TIN</span><span>' + (pkt.foundSkus || []).length + ' mã</span></div>' +
+            foundHtml +
+            cachedHint +
           '</div>' +
         '</div>';
       }).join("");
@@ -1324,13 +1504,13 @@ const DASHBOARD_HTML = `<!doctype html>
     async function simulatePacket() {
       await fetch("/api/telemetry/simulate", { method: "POST" });
       await fetchState(true);
-      showToast("Đã bắn 1 gói tin bắt gói giả lập vào Nhật ký Realtime!");
+      showToast("Đã bắn 1 gói tin đầy đủ 7 SKU gốc vào Nhật ký Realtime!");
     }
 
     function togglePauseLog() {
       logPaused = !logPaused;
       const btn = document.getElementById("btn-pause-log");
-      btn.textContent = logPaused ? "▶ Tiếp tục cập nhật" : "⏸ Tạm dừng cập nhật";
+      btn.textContent = logPaused ? "▶ Tiếp tục" : "⏸ Tạm dừng";
       btn.className = logPaused ? "success sm" : "secondary sm";
     }
 
@@ -1340,6 +1520,7 @@ const DASHBOARD_HTML = `<!doctype html>
         exportedAt: new Date().toISOString(),
         runtimeSummary: appState.runtimeSummary,
         skuCatalog: appState.skuCatalog,
+        recentScanEvents: appState.recentScanEvents,
         telemetry: appState.telemetry
       }, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);

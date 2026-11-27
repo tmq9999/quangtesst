@@ -592,8 +592,11 @@ function createG1MappingConfig(store) {
             annualHitCount: annualHits,
             matchedFrom: sources,
             foundSkus: lastScanReport ? lastScanReport.foundList : [],
+            allStoredSkus: lastScanReport ? lastScanReport.allStoredSkus : [],
+            recentResponses: lastScanReport ? lastScanReport.recentResponses : [],
             scanStatus: lastScanReport ? lastScanReport.status : "",
             scannedResponses: lastScanReport ? lastScanReport.scannedResponses : 0,
+            matchedResponses: lastScanReport ? lastScanReport.matchedResponses : 0,
             logs: allLogs
           })
         }, function () {});
@@ -752,6 +755,9 @@ function createG1MappingConfig(store) {
       candidateCount: candidateCount,
       hitCount: hitCount,
       scannedResponses: state.scannedResponses,
+      matchedResponses: state.matchedResponses,
+      allStoredSkus: state.skus,
+      recentResponses: state.recentResponses,
       foundList: foundList,
       logs: scanLogs
     };

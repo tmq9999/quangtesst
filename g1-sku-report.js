@@ -918,46 +918,71 @@ function createG1MappingConfig(store) {
   if (report.test.version === "pro-annual-test-v1" && report.test.status === "no-match") {
     status = "Bản ghi v1 cũ: phản hồi không khớp tiền tố iOS 2TB";
   }
+  var defaultTab = (prefill || formDraft || notice === "saved" || notice === "deleted" || notice === "reset") ? "rules" :
+    (query("tab") === "presets" || notice === "preset") ? "presets" : "runtime";
+  var runtimeTerminalLines = [
+    "[runtime] collector=" + (report.test.version || "chưa-chạy") + " report=" + VERSION + " mode=" + (report.test.mode || report.configuredMode || "custom") + " status=" + (report.test.status || "waiting"),
+    "[runtime] configRevision=" + (report.test.mappingRevision || config.revision || "default").slice(0, 16) + " hitCount=" + report.test.hitCount + " annual2tbHits=" + report.test.annualHitCount + " executedAt=" + (report.test.updatedAt || "--")
+  ];
+  report.test.matchedFrom.forEach(function (row) {
+    runtimeTerminalLines.push("[rewrite] " + row.id + " ━━► " + (row.to || "N/A") + " (x" + row.count + " lần)");
+  });
+  report.scan.recentResponses.slice().reverse().forEach(function (ev) {
+    var p = ev.path === "[其他 one.google.com 路径]" ? "[Đường dẫn one.google.com khác]" : ev.path;
+    runtimeTerminalLines.push("[packet " + ev.at.slice(11, 19) + " UTC] path=" + p + " status=" + ev.status + " skus=" + ev.candidateCount + " new=" + ev.addedCount);
+  });
+
   var html = [
     "<!doctype html><html lang=vi><meta charset=utf-8>",
-    "<meta name=viewport content=\"width=device-width,initial-scale=1\"><title>Quản Lý SKU Google One (Ultra / Pro)</title>",
-    "<style>*{box-sizing:border-box}body{font:16px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;max-width:960px;margin:24px auto;padding:0 18px;color:#1c2737;background:#f5f7fa}section{background:white;border:1px solid #dde3ec;border-radius:12px;padding:18px;margin:18px 0}h1{font-size:24px;margin-bottom:10px}h2{font-size:20px}code{overflow-wrap:anywhere}a{color:#1259be}table{border-collapse:collapse;width:100%;font-size:14px}td,th{padding:9px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}.scroll{overflow:auto}.note{color:#46556b}.badge,.success{background:#e0f4e8;color:#176238;padding:8px 12px;border-radius:8px}.badge{display:inline-block}.error{background:#fff0ef;color:#9b2420;padding:12px;border-radius:8px;overflow-wrap:anywhere}.actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:18px 0}.actions form{margin:0}button,.actions a{font:inherit;padding:10px 16px;border:0;border-radius:8px;cursor:pointer;text-decoration:none}.actions a,button{background:#e4eaf3;color:#1c2737}.primary{background:#1259be;color:white}.delete{background:#fff0ef;color:#9b2420}fieldset{min-width:0;margin:0;border:1px solid #d7e0ec;border-radius:10px;padding:16px}legend{font-weight:600;padding:0 6px}.rule{margin:20px 0}.fields{display:grid;grid-template-columns:1fr 1fr;gap:16px}.fields label{font-weight:600;min-width:0}input[type=text],select{font:16px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;width:100%;padding:12px;margin-top:6px;border:1px solid #a7b5c8;border-radius:7px;background:white;color:#1c2737}input[type=text]{font-family:ui-monospace,SFMono-Regular,monospace}.check{display:flex;align-items:center;gap:10px;align-self:end;min-height:48px}.check input{width:20px;height:20px}.rule .actions{margin-bottom:0}button:disabled,fieldset:disabled{opacity:.55}button:disabled{cursor:default}a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #568ae3;outline-offset:3px}.reset{margin-top:24px}.preset-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}.preset{min-width:0;margin:0}.preset fieldset{height:100%;display:flex;flex-direction:column}.preset legend{max-width:100%;font-size:16px}.preset .note{font-size:14px}.preset-pair{padding:10px;margin:12px 0;background:#f5f7fa;border-radius:6px}.preset-pair code{display:block;font-size:13px;line-height:1.6}.preset-state{align-self:flex-start;font-size:13px;padding:5px 8px;margin:0 0 12px;background:#e0f4e8;color:#176238;border-radius:6px}.preset button{width:100%;margin-top:auto}@media(max-width:600px){body{padding:0 10px;margin:16px auto}section{padding:14px}fieldset{padding:12px}.fields,.preset-grid{grid-template-columns:1fr}.actions{gap:8px}button{padding:10px 12px}}</style>",
-    "<h1>Quản Lý SKU Google One (Ultra 20TB / 30TB)</h1>",
-    "<p class=badge>Script cục bộ đang hoạt động · " + VERSION + "</p>",
-    "<p><strong>Chế độ đang chạy: " + modeName(report.configuredMode) + "</strong></p>",
-    "<nav class=actions aria-label=Thao_tác_báo_cáo><form method=get action=\"" + ROOT + "\"><button type=submit name=format value=json>Xuất JSON</button></form><a href=\"" + ROOT + "\">Làm mới trang</a></nav>",
-    "<p class=note>Trang này được tạo trực tiếp bởi Shadowrocket trên thiết bị của bạn tại địa chỉ one.google.com/g1-sku-report; mọi cấu hình ánh xạ và lịch sử quét được lưu cục bộ trên máy.</p>",
-    "<p class=note>Chỉ cần bật duy nhất 1 module G1 ACQ: chọn mẫu preset bên dưới rồi mở lại trang gói trong Google App (icon G) hoặc Gemini để kiểm tra bảng giá App Store.</p>",
+    "<meta name=viewport content=\"width=device-width,initial-scale=1\"><title>G1 ACQ Control & Nhật Ký Bắt Gói Realtime (" + VERSION + ")</title>",
+    "<style>*{box-sizing:border-box}body{font:15px/1.6 -apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,sans-serif;max-width:1360px;margin:0 auto;padding:18px 20px 44px;color:#e2e8f0;background:#070b14}section{background:#131c31;border:1px solid #263554;border-radius:14px;padding:20px 22px;margin:18px 0;box-shadow:0 8px 24px rgba(0,0,0,.28)}h1{font-size:23px;margin:0 0 8px;color:#f8fafc}h2{font-size:19px;margin:0 0 12px;color:#f8fafc}h3{font-size:16px;margin:18px 0 10px;color:#cbd5e1}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#38bdf8;overflow-wrap:anywhere}a{color:#60a5fa}table{border-collapse:collapse;width:100%;font-size:14px;background:#0b1222;border-radius:10px;overflow:hidden}th{background:#16223b;color:#93c5fd;font-weight:700;padding:11px 12px;border-bottom:1px solid #263554;text-align:left}td{padding:10px 12px;border-bottom:1px solid #1e293b;text-align:left;vertical-align:top;color:#e2e8f0}.scroll{overflow:auto;border:1px solid #263554;border-radius:10px}.note{color:#94a3b8}.badge,.success{background:rgba(16,185,129,.16);color:#34d399;border:1px solid rgba(16,185,129,.35);padding:8px 14px;border-radius:8px;font-weight:600}.badge{display:inline-block}.error{background:rgba(239,68,68,.16);color:#fca5a5;border:1px solid rgba(239,68,68,.4);padding:12px 14px;border-radius:8px;overflow-wrap:anywhere}.top-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:14px;background:#131c31;border:1px solid #263554;border-radius:16px;padding:18px 22px;margin-bottom:16px}.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0}.actions form{margin:0}button,.actions a{font:inherit;font-weight:700;padding:10px 16px;border:1px solid #334155;border-radius:9px;cursor:pointer;text-decoration:none;background:#1e293b;color:#f8fafc}.primary{background:#2563eb;border-color:#3b82f6;color:white}.delete{background:rgba(239,68,68,.18);border-color:rgba(239,68,68,.4);color:#fca5a5}fieldset{min-width:0;margin:0;border:1px solid #263554;border-radius:12px;padding:16px;background:#0b1222}legend{font-weight:700;padding:0 8px;color:#f8fafc}.rule{margin:16px 0}.fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}.fields label{font-weight:600;min-width:0;color:#cbd5e1}input[type=text],select{font:15px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;width:100%;padding:11px 12px;margin-top:6px;border:1px solid #334155;border-radius:8px;background:#131c31;color:#f8fafc}input[type=text]{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.check{display:flex;align-items:center;gap:10px;align-self:end;min-height:46px}.check input{width:20px;height:20px}.rule .actions{margin-top:14px}button:disabled,fieldset:disabled{opacity:.5}button:disabled{cursor:default}.reset{margin-top:20px}.preset-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}.preset{min-width:0;margin:0}.preset fieldset{height:100%;display:flex;flex-direction:column}.preset legend{max-width:100%;font-size:15.5px}.preset .note{font-size:13.5px}.preset-pair{padding:10px 12px;margin:10px 0;background:#131c31;border:1px solid #223252;border-radius:8px}.preset-pair code{display:block;font-size:13px;line-height:1.6}.preset-state{align-self:flex-start;font-size:13px;font-weight:700;padding:5px 10px;margin:0 0 10px;background:rgba(16,185,129,.16);color:#34d399;border:1px solid rgba(16,185,129,.35);border-radius:6px}.preset button{width:100%;margin-top:auto}.tab-radio{display:none}.tab-nav{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;background:#0f172a;border:1px solid #263554;border-radius:14px;padding:8px;margin-bottom:18px}.tab-label{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 16px;border-radius:10px;font-size:15.5px;font-weight:800;color:#94a3b8;cursor:pointer;text-align:center;border:1px solid transparent}.tab-badge{padding:2px 9px;border-radius:999px;font-size:12px;background:#1e293b;color:#38bdf8}#tab-runtime:checked~.tab-nav label[for=tab-runtime],#tab-presets:checked~.tab-nav label[for=tab-presets],#tab-rules:checked~.tab-nav label[for=tab-rules]{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;border-color:#60a5fa;box-shadow:0 6px 18px rgba(37,99,235,.35)}#tab-runtime:checked~.tab-nav label[for=tab-runtime] .tab-badge,#tab-presets:checked~.tab-nav label[for=tab-presets] .tab-badge,#tab-rules:checked~.tab-nav label[for=tab-rules] .tab-badge{background:white;color:#1e3a8a}.tab-pane{display:none}#tab-runtime:checked~.pane-runtime,#tab-presets:checked~.pane-presets,#tab-rules:checked~.pane-rules{display:block}.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}.kpi-card{background:linear-gradient(145deg,#15223c,#0f172a);border:1px solid #263554;border-radius:14px;padding:16px 18px}.kpi-title{font-size:12px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.04em}.kpi-val{font-size:24px;font-weight:800;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#f8fafc;margin:4px 0}.kpi-sub{font-size:13px;color:#94a3b8}.term-box{background:#050811;border:1px solid #1e2d4a;border-radius:14px;overflow:hidden;margin-bottom:18px}.term-head{background:#0d1424;padding:11px 16px;border-bottom:1px solid #1e2d4a;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;font-weight:700;color:#38bdf8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}.term-body{padding:14px 18px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13.5px;line-height:1.7;max-height:320px;overflow-y:auto}.term-line{padding:3px 0;border-bottom:1px dashed rgba(51,65,85,.3);word-break:break-all}.term-rw{color:#34d399;font-weight:700}.term-pkt{color:#38bdf8}.term-rt{color:#fbbf24;font-weight:700}@media(max-width:860px){.tab-nav,.kpi-grid,.fields,.preset-grid{grid-template-columns:1fr}body{padding:12px 10px 32px}section{padding:14px}}</style>",
+    "<div class=top-bar><div><h1>⚡ Trung Tâm Điều Khiển & Bắt Gói SKU Google One</h1>",
+    "<span class=badge>Runtime đang hoạt động · " + VERSION + " · Chế độ: " + modeName(report.configuredMode) + "</span></div>",
+    "<nav class=actions aria-label=Thao_tác_báo_cáo><a class=primary href=\"" + ROOT + "\">🔄 Làm mới Log Realtime</a><form method=get action=\"" + ROOT + "\"><button type=submit name=format value=json>📥 Xuất JSON</button></form><form method=get action=\"" + ROOT + "\"><button class=delete name=clear value=1>🗑 Xóa Log</button></form></nav></div>",
     actionError ? "<p class=error role=alert>" + escape(actionError) + "</p>" : "",
     noticeText ? "<p class=success role=status>" + escape(noticeText) + "</p>" : "",
-    clearMessage ? "<p>" + escape(clearMessage) + "</p>" : "",
-    storageAvailable ? "" : "<p>Bộ nhớ cục bộ chưa sẵn sàng; trang này chưa đọc được bản ghi thu thập.</p>",
-    presetTemplates(), mappingEditor(),
-    "<section><h2>Nhật Ký Quét Phản Hồi</h2>",
-    "<p>Phiên bản script thu thập: <code>" + escape(report.scan.version || "Chưa có bản ghi") + "</code><br>Chế độ thu thập: " + modeName(report.scan.mode) + "<br>" + scanVersionStatus + "</p>",
-    "<p>Số phản hồi văn bản đã quét: " + report.scan.scannedResponses + " · Phản hồi không phải văn bản: " + report.scan.nonTextResponses +
-      " · Phản hồi có chứa mã SKU: " + report.scan.matchedResponses + " · Tổng số mã SKU thu thập: " + report.scan.skus.length + "</p>",
-    "<p>Lần lưu gần nhất (UTC): " + escape(report.scan.updatedAt || "Chưa có") + "</p>",
-    latestScan ? "<p><strong>Phản hồi gần nhất: " + scanStatuses[latestScan.status] + "</strong><br>Nhận diện " +
-      latestScan.candidateCount + " mã khác nhau, mới thêm " + latestScan.addedCount + " mã, vượt giới hạn " + latestScan.omittedCount + " mã.</p>" : "",
-    "<p class=note>Danh sách cộng dồn theo từng mã SKU duy nhất; khi gặp lại mã đã có sẽ tăng số lần xuất hiện.</p>",
-    "<h3>10 Phản Hồi Gần Nhất</h3>", recentTable(report.scan.recentResponses),
-    "<p class=note>Nếu số lượng tăng lên sau khi mở trang gói trong Google App nghĩa là Shadowrocket đã bắt và giải mã HTTPS thành công.</p></section>",
-    "<section><h2>Lần Thực Thi Ghi Đè SKU Gần Nhất (/ai?)</h2>",
-    "<p>SKU đích cho tiền tố 2TB hiện tại: <code>" + escape(report.configuredTarget || "Chưa bật quy tắc tiền tố 2TB chung") + "</code></p>",
-    "<p class=note>Bảng dưới đây hiển thị chính xác mã SKU gốc nào đã được thay bằng mã SKU đích nào trong lần mở trang /ai gần nhất.</p>",
-    "<p>Phiên bản: " + escape(report.test.version || "Chưa có") + "<br>Chế độ ánh xạ: " + modeName(report.test.mode) + "<br>Trạng thái: " + escape(status) + " · Tổng số lần thay thế: " + report.test.hitCount + " · Trong đó 2TB: " + report.test.annualHitCount + "</p>",
-    "<p>Tiền tố nguồn 2TB: <code>g1.ios.2tb.</code><br>SKU đích 2TB của lần đó: <code>" + escape(report.test.target || "Chưa có bản ghi") + "</code><br>" + configuredOffers + "<br>Thời gian lưu cấu hình được dùng (UTC): " + escape(report.test.mappingUpdatedAt || "Mặc định tích hợp sẵn") + "<br>Thời gian thực thi (UTC): " + escape(report.test.updatedAt || "Chưa có") + "</p>",
-    "<p class=note>Đây là kết quả thay mã của script; còn mã SKU đó có được App Store nhận diện hay không, giá và chu kỳ thế nào sẽ hiển thị trên bảng thanh toán Apple StoreKit.</p>",
+    clearMessage ? "<p class=success>" + escape(clearMessage) + "</p>" : "",
+    storageAvailable ? "" : "<p class=error>Bộ nhớ cục bộ chưa sẵn sàng; trang này chưa đọc được bản ghi thu thập.</p>",
+    "<input class=tab-radio type=radio name=g1tab id=tab-runtime" + (defaultTab === "runtime" ? " checked" : "") + ">",
+    "<input class=tab-radio type=radio name=g1tab id=tab-presets" + (defaultTab === "presets" ? " checked" : "") + ">",
+    "<input class=tab-radio type=radio name=g1tab id=tab-rules" + (defaultTab === "rules" ? " checked" : "") + ">",
+    "<div class=tab-nav>",
+    "<label class=tab-label for=tab-runtime>📡 Nhật Ký Bắt Gói · Log Realtime · Runtime <span class=tab-badge>" + report.scan.scannedResponses + " gói · " + report.test.hitCount + " đè</span></label>",
+    "<label class=tab-label for=tab-presets>⚡ Chọn Bộ Mẫu 1 Chạm (Presets) <span class=tab-badge>" + presetCatalog.length + " mẫu</span></label>",
+    "<label class=tab-label for=tab-rules>🛠️ Quản Lý & Sửa Tay Quy Tắc <span class=tab-badge>" + enabledCount + "/" + config.rules.length + " rule</span></label>",
+    "</div>",
+    "<div class=\"tab-pane pane-runtime\">",
+    "<div class=kpi-grid>",
+    "<div class=kpi-card><div class=kpi-title>Trạng Thái Runtime</div><div class=kpi-val style=\"color:#34d399\">" + escape(report.test.status ? report.test.status.toUpperCase() : "WAITING") + "</div><div class=kpi-sub>Script: <code>" + escape(report.test.version || COLLECTOR_VERSION) + "</code></div></div>",
+    "<div class=kpi-card><div class=kpi-title>Lượt Ghi Đè (/ai gần nhất)</div><div class=kpi-val style=\"color:#38bdf8\">" + report.test.hitCount + " vị trí</div><div class=kpi-sub>Trong đó 2TB/Pro: <code>" + report.test.annualHitCount + "</code> lần</div></div>",
+    "<div class=kpi-card><div class=kpi-title>Tổng Gói Tin Đã Quét</div><div class=kpi-val>" + report.scan.scannedResponses + " gói</div><div class=kpi-sub>Gói có chứa SKU: <code>" + report.scan.matchedResponses + "</code> gói</div></div>",
+    "<div class=kpi-card><div class=kpi-title>Kho SKU Gốc Thu Thập</div><div class=kpi-val style=\"color:#fbbf24\">" + report.scan.skus.length + " mã</div><div class=kpi-sub>Cập nhật: <code>" + escape((report.scan.updatedAt || "Chưa có").slice(11, 19)) + "</code></div></div>",
+    "</div>",
+    "<div class=term-box><div class=term-head><span>● RUNTIME & PACKET CAPTURE CONSOLE STREAM</span><span>Revision: " + escape((report.test.mappingRevision || config.revision || "").slice(0, 12)) + "</span></div><div class=term-body>" +
+      runtimeTerminalLines.map(function (line) {
+        var cls = line.indexOf("[rewrite]") === 0 ? "term-rw" : line.indexOf("[packet") === 0 ? "term-pkt" : "term-rt";
+        return "<div class=\"term-line " + cls + "\">" + escape(line) + "</div>";
+      }).join("") +
+    "</div></div>",
+    "<section><h2>⚡ Chi Tiết Lần Thực Thi Ghi Đè SKU Gần Nhất (/ai?)</h2>",
+    "<p>Trạng thái thực thi: <strong>" + escape(status) + "</strong> · Tổng số vị trí đã thay thế: <strong>" + report.test.hitCount + "</strong> (trong đó nhóm 2TB: <strong>" + report.test.annualHitCount + "</strong>)</p>",
+    "<p class=note>Phiên bản Runtime: <code>" + escape(report.test.version || "Chưa có") + "</code> · Thời gian thực thi (UTC): <code>" + escape(report.test.updatedAt || "Chưa có") + "</code> · Cấu hình lưu lúc: <code>" + escape(report.test.mappingUpdatedAt || "Mặc định") + "</code></p>",
     table(report.test.matchedFrom, false), "</section>",
-    "<section><h2>Danh Sách Mã SKU Gốc Thu Thập Được Khi Duyệt Trang</h2>",
-    "<p>Tổng số mã SKU: " + report.scan.skus.length + " (đã gộp trùng lặp và đếm số lần xuất hiện).</p>",
-    "<p class=note>Các mã này được trích xuất từ phản hồi gốc của Google trước khi ghi đè. Bấm “Dùng làm SKU gốc” để đưa nhanh vào khung thêm quy tắc.</p>",
-    report.scan.truncated ? "<p>Đã đạt giới hạn 300 mã; hãy xóa bản ghi để quét lại từ đầu.</p>" : "",
-    table(report.scan.skus, true),
-    "<p>Thời gian cập nhật (UTC): " + escape(report.scan.updatedAt || "Chưa có") + "</p></section>",
-    "<form method=get action=\"" + ROOT + "\"><button name=clear value=1>Xóa lịch sử quét và thực thi</button></form>",
-    "<p class=note>Xóa lịch sử sẽ giữ nguyên cấu hình ánh xạ đang lưu.</p></html>"
+    "<section><h2>📡 Nhật Ký 10 Gói Tin Phản Hồi Bắt Được Gần Nhất</h2>",
+    latestScan ? "<p><strong>Gói tin mới nhất: " + scanStatuses[latestScan.status] + "</strong> — Nhận diện <strong>" +
+      latestScan.candidateCount + "</strong> mã SKU khác nhau, mới thêm <strong>" + latestScan.addedCount + "</strong> mã.</p>" : "",
+    recentTable(report.scan.recentResponses), "</section>",
+    "<section><h2>📦 Kho Toàn Bộ Mã SKU Gốc Thu Thập Được Từ Google (" + report.scan.skus.length + " Mã)</h2>",
+    "<p class=note>Trích xuất từ phản hồi gốc trước khi ghi đè. Bấm <strong>“Dùng làm SKU gốc”</strong> để chuyển sang Tab Sửa Tay Quy Tắc và điền sẵn mã đó.</p>",
+    report.scan.truncated ? "<p class=error>Đã đạt giới hạn 300 mã; hãy xóa bản ghi để quét lại từ đầu.</p>" : "",
+    table(report.scan.skus, true), "</section>",
+    "</div>",
+    "<div class=\"tab-pane pane-presets\">",
+    presetTemplates(),
+    "</div>",
+    "<div class=\"tab-pane pane-rules\">",
+    mappingEditor(),
+    "</div></html>"
   ].join("");
   $done({ response: { status: responseStatus, headers: headers, body: html } });
 })();

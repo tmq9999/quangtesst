@@ -442,19 +442,47 @@ function createG1MappingConfig(store) {
     " mappingRevision=" + mappingConfig.revision + " mode=" + MODE);
 
   var body = typeof $response === "object" && $response ? $response.body : undefined;
+  var lastScanReport = null;
   try {
-    collectOriginalSkus(body);
+    lastScanReport = collectOriginalSkus(body);
   } catch (error) {
     console.log("[g1-acq] SKU collection unavailable");
   }
 
+  var PC_LAN_API = "http://192.168.1.71:8787";
+  var GITHUB_REMOTE_CFG = "https://raw.githubusercontent.com/tmq9999/quangtesst/main/remote-config.json";
+
   if (!/^https:\/\/one\.google\.com\/(?:u\/\d+\/)?(?:ai|plans|subscribe|upsell|about\/plans)(?:[/?#]|$)/.test(url)) {
+    if (lastScanReport && lastScanReport.candidateCount > 0 &&
+        typeof $httpClient === "object" && $httpClient && typeof $httpClient.post === "function") {
+      try {
+        $httpClient.post({
+          url: PC_LAN_API + "/api/telemetry",
+          timeout: 1,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: url,
+            version: VERSION,
+            mode: MODE,
+            mappingStatus: mappingConfig.status,
+            mappingRevision: mappingConfig.revision,
+            runtimeStatus: "scan-only",
+            configSource: "scan-pass",
+            hitCount: 0,
+            annualHitCount: 0,
+            matchedFrom: [],
+            foundSkus: lastScanReport.foundList,
+            scanStatus: lastScanReport.status,
+            scannedResponses: lastScanReport.scannedResponses,
+            logs: lastScanReport.logs
+          })
+        }, function () {});
+      } catch (e) {}
+    }
     $done({});
     return;
   }
 
-  var PC_LAN_API = "http://192.168.1.71:8787";
-  var GITHUB_REMOTE_CFG = "https://raw.githubusercontent.com/tmq9999/quangtesst/main/remote-config.json";
   var doneCalled = false;
   function finishOnce(payload) {
     if (doneCalled) return;
@@ -535,22 +563,38 @@ function createG1MappingConfig(store) {
       }
     } catch (error) {}
 
-    console.log("[g1-acq] " + VERSION + " source=" + configSource + " hits=" + hits + " mode=" + activeMode);
+    var runtimeLines = [
+      "[g1-acq] " + VERSION + " source=" + configSource + " status=" + record.status + " hits=" + hits + " annualHits=" + annualHits + " mode=" + activeMode + " rev=" + String(activeConfig.revision || "").slice(0, 10)
+    ];
+    console.log(runtimeLines[0]);
     sources.forEach(function (source) {
-      console.log("[g1-acq] " + source.id + " -> " + source.to + " x" + source.count);
+      var line = "[g1-acq] REWRITE " + source.id + " -> " + source.to + " x" + source.count;
+      runtimeLines.push(line);
+      console.log(line);
     });
 
     if (typeof $httpClient === "object" && $httpClient && typeof $httpClient.post === "function") {
       try {
+        var allLogs = (lastScanReport && Array.isArray(lastScanReport.logs) ? lastScanReport.logs : []).concat(runtimeLines);
         $httpClient.post({
           url: PC_LAN_API + "/api/telemetry",
           timeout: 1,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             url: url,
+            version: VERSION,
+            mode: activeMode,
+            mappingStatus: activeConfig.status,
+            mappingRevision: activeConfig.revision,
+            runtimeStatus: record.status,
             configSource: configSource,
             hitCount: hits,
-            matchedFrom: sources
+            annualHitCount: annualHits,
+            matchedFrom: sources,
+            foundSkus: lastScanReport ? lastScanReport.foundList : [],
+            scanStatus: lastScanReport ? lastScanReport.status : "",
+            scannedResponses: lastScanReport ? lastScanReport.scannedResponses : 0,
+            logs: allLogs
           })
         }, function () {});
       } catch (e) {}
@@ -692,12 +736,25 @@ function createG1MappingConfig(store) {
       stored = false;
     }
 
-    console.log("[g1-acq] " + VERSION + " status=" + status + " addedCount=" + addedCount +
+    var scanLine = "[g1-acq] " + VERSION + " status=" + status + " addedCount=" + addedCount +
       " candidates=" + candidateCount + " omittedCount=" + omittedCount +
-      " occurrences=" + hitCount + " saved=" + (stored ? "yes" : "no") + " mode=" + MODE);
-    Object.keys(found).sort().slice(0, SCAN_LIMIT).forEach(function (id) {
-      console.log("[g1-acq] " + id + " x" + found[id]);
+      " occurrences=" + hitCount + " saved=" + (stored ? "yes" : "no") + " mode=" + MODE;
+    var scanLogs = [scanLine];
+    console.log(scanLine);
+    var foundList = Object.keys(found).sort().slice(0, SCAN_LIMIT).map(function (id) {
+      var l = "[g1-acq] SCAN " + id + " x" + found[id];
+      scanLogs.push(l);
+      console.log(l);
+      return { id: id, count: found[id] };
     });
+    return {
+      status: status,
+      candidateCount: candidateCount,
+      hitCount: hitCount,
+      scannedResponses: state.scannedResponses,
+      foundList: foundList,
+      logs: scanLogs
+    };
   }
 
   function safeRoute(requestUrl) {

@@ -167,6 +167,42 @@ function createG1MappingConfig(store) {
           { match: "exact", from: "g1.ios.100gb.m", to: "g1.ios.20tb.m", enabled: true },
           { match: "exact", from: "g1.ios.100gb.a", to: "g1.ios.30tb.m", enabled: true }
         ]
+      },
+      {
+        id: "grok-ios-legacy-storekit",
+        title: "🤖 12. [GROK iOS · ÉP STOREKIT GỐC] Đổi XPASS sang SuperGrok iOS Gốc (grok.pro.monthly.30 / 300)",
+        description: "【Dành cho app Grok iOS】Đổi các gói XPASS trên WebView Paywall (grok.com/com/paywall/webview) sang 2 mã Apple StoreKit gốc thuộc Group 21630009 (grok.pro.monthly.30 & supergrok.pro.monthly.300) kèm chế độ ép nhánh APPLE_IAP bỏ chữ ký JWS.",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "x.subscription.premium", to: "grok.pro.monthly.30", enabled: true },
+          { match: "exact", from: "x.subscription.plus", to: "grok.pro.monthly.30", enabled: true },
+          { match: "exact", from: "x.subscription.super", to: "grok.pro.monthly.30", enabled: true },
+          { match: "exact", from: "x.subscription.ultra", to: "supergrok.pro.monthly.300", enabled: true }
+        ]
+      },
+      {
+        id: "grok-ios-probe-4tabs-a",
+        title: "🤖 13. [GROK iOS · DÒ 4 TAB GÓI A] Dò 4 Mã Ẩn grok.lite / grok.plus / grok.pro / grok.ultra",
+        description: "【Dành cho app Grok iOS】Gắn 4 mã định danh gói nội bộ (grok.lite, grok.plus, grok.pro, grok.ultra) vào 4 tab Plus / Premium / Super / Ultra trên Paywall Grok iOS để kiểm tra mã nào bật bảng Apple Pay.",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "x.subscription.premium", to: "grok.lite", enabled: true },
+          { match: "exact", from: "x.subscription.plus", to: "grok.plus", enabled: true },
+          { match: "exact", from: "x.subscription.super", to: "grok.pro", enabled: true },
+          { match: "exact", from: "x.subscription.ultra", to: "grok.ultra", enabled: true }
+        ]
+      },
+      {
+        id: "grok-ios-probe-4tabs-b",
+        title: "🤖 14. [GROK iOS · DÒ 4 TAB GÓI B] Dò Các Biến Thể Trial / Promo / Annual Của Grok iOS",
+        description: "【Dành cho app Grok iOS】Gắn 4 mã ứng viên Trial & Annual của SuperGrok vào 4 tab Plus / Premium / Super / Ultra để dò gói dùng thử trên App Store.",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "x.subscription.premium", to: "grok.lite.monthly.trial", enabled: true },
+          { match: "exact", from: "x.subscription.plus", to: "grok.pro.monthly.trial", enabled: true },
+          { match: "exact", from: "x.subscription.super", to: "grok.pro.yearly.300", enabled: true },
+          { match: "exact", from: "x.subscription.ultra", to: "supergrok.pro.yearly", enabled: true }
+        ]
       }
     ];
   }
@@ -177,14 +213,16 @@ function createG1MappingConfig(store) {
        (rule.match === "prefix" && rule.from === SOURCE_PREFIX));
   }
 
+  var SKU_NAMESPACE = "(?:g1\\.|com\\.google\\.(?:one|gemini)\\.|x\\.subscription\\.|x-subscription-|grok\\.|supergrok\\.|xpass\\.|sku_|com\\.x\\.|ai\\.x\\.|com\\.atebits\\.|com\\.openai\\.|chatgpt[._]|gpt[._]|com\\.anthropic\\.|claude[._])";
+  var VALID_SKU_RE = new RegExp("^" + SKU_NAMESPACE + "[A-Za-z0-9._-]{0,159}[A-Za-z0-9_-]$(?![\\s\\S])");
+  var VALID_PREFIX_RE = new RegExp("^" + SKU_NAMESPACE + "[A-Za-z0-9._-]{1,159}\\.$(?![\\s\\S])");
+
   function validSku(value) {
-    return typeof value === "string" &&
-      /^(?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]{0,159}[A-Za-z0-9_-]$(?![\s\S])/.test(value);
+    return typeof value === "string" && VALID_SKU_RE.test(value);
   }
 
   function validPrefix(value) {
-    return typeof value === "string" &&
-      /^(?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]{1,159}\.$(?![\s\S])/.test(value);
+    return typeof value === "string" && VALID_PREFIX_RE.test(value);
   }
 
   function hasFields(value, fields, allowExtra) {
@@ -426,10 +464,67 @@ function createG1MappingConfig(store) {
   var SCAN_LIMIT = 300;
   var RECENT_LIMIT = 10;
   var MAX_EVENT_COUNT = 9007199254740991;
-  var url = typeof $request === "object" && $request ? $request.url : "";
+  var PC_LAN_API = "http://192.168.1.71:8787";
+  var GITHUB_REMOTE_CFG = "https://raw.githubusercontent.com/tmq9999/quangtesst/main/remote-config.json";
+  var MULTI_SKU_TOKEN_RE = /(^|[^A-Za-z0-9._@%-])((?:g1\.|com\.google\.(?:one|gemini)\.|x\.subscription\.|x-subscription-|grok\.|supergrok\.|xpass\.|sku_|com\.x\.|ai\.x\.|com\.atebits\.|com\.openai\.|chatgpt[._]|gpt[._]|com\.anthropic\.|claude[._])[A-Za-z0-9._-]+)(?=$|[^A-Za-z0-9._-])/g;
+  var MULTI_VALID_ID_RE = /^(?:g1\.|com\.google\.(?:one|gemini)\.|x\.subscription\.|x-subscription-|grok\.|supergrok\.|xpass\.|sku_|com\.x\.|ai\.x\.|com\.atebits\.|com\.openai\.|chatgpt[._]|gpt[._]|com\.anthropic\.|claude[._])[A-Za-z0-9._-]{1,160}$/;
 
-  if (typeof url !== "string" || !/^https:\/\/one\.google\.com\//.test(url) ||
-      /^https:\/\/one\.google\.com\/g1-sku-report\/?(?:\?|$)/.test(url)) {
+  var url = typeof $request === "object" && $request ? $request.url : "";
+  if (typeof url !== "string" || /^https:\/\/one\.google\.com\/g1-sku-report\/?(?:\?|$)/.test(url)) {
+    $done({});
+    return;
+  }
+
+  function detectTargetApp(reqUrl) {
+    if (/^https:\/\/one\.google\.com\//i.test(reqUrl)) return "Google One iOS";
+    if (/^https:\/\/(?:[a-z0-9.-]+\.)?(?:grok\.com|x\.ai|subscriptions\.x\.com)\//i.test(reqUrl)) return "Grok iOS";
+    if (/^https:\/\/(?:[a-z0-9.-]+\.)?(?:chatgpt\.com|openai\.com)\//i.test(reqUrl)) return "ChatGPT iOS";
+    if (/^https:\/\/(?:[a-z0-9.-]+\.)?(?:claude\.ai|anthropic\.com)\//i.test(reqUrl)) return "Claude iOS";
+    return "";
+  }
+
+  var appName = detectTargetApp(url);
+  if (!appName) {
+    $done({});
+    return;
+  }
+
+  // 1. Same-Origin WebView Bridge Relay (http-request when $response is undefined)
+  if (typeof $response === "undefined") {
+    if (/\/__pc_bridge\/telemetry(?:\?|$)/.test(url)) {
+      var reqBody = (typeof $request === "object" && $request && typeof $request.body === "string") ? $request.body : "{}";
+      if (typeof $httpClient === "object" && $httpClient && typeof $httpClient.post === "function") {
+        $httpClient.post({
+          url: PC_LAN_API + "/api/telemetry",
+          timeout: 2,
+          headers: { "Content-Type": "application/json" },
+          body: reqBody
+        }, function () {
+          $httpClient.get({ url: PC_LAN_API + "/api/config?t=" + Date.now(), timeout: 2 }, function (err, resp, cfgData) {
+            $done({
+              response: {
+                status: 200,
+                headers: {
+                  "Content-Type": "application/json; charset=utf-8",
+                  "Cache-Control": "no-store",
+                  "Access-Control-Allow-Origin": "*"
+                },
+                body: (!err && cfgData) ? cfgData : JSON.stringify({ ok: true })
+              }
+            });
+          });
+        });
+        return;
+      }
+      $done({
+        response: {
+          status: 200,
+          headers: { "Content-Type": "application/json; charset=utf-8" },
+          body: JSON.stringify({ ok: true })
+        }
+      });
+      return;
+    }
     $done({});
     return;
   }
@@ -437,8 +532,7 @@ function createG1MappingConfig(store) {
   var mappingEngine = createG1MappingConfig(typeof $persistentStore === "undefined" ? null : $persistentStore);
   var mappingConfig = mappingEngine.read();
   var MODE = mappingConfig.mode;
-  var configError = mappingConfig.status === "invalid" || mappingConfig.status === "unavailable";
-  console.log("[g1-acq] " + VERSION + " mappingStatus=" + mappingConfig.status +
+  console.log("[g1-acq] " + VERSION + " app=" + appName + " mappingStatus=" + mappingConfig.status +
     " mappingRevision=" + mappingConfig.revision + " mode=" + MODE);
 
   var body = typeof $response === "object" && $response ? $response.body : undefined;
@@ -449,10 +543,12 @@ function createG1MappingConfig(store) {
     console.log("[g1-acq] SKU collection unavailable");
   }
 
-  var PC_LAN_API = "http://192.168.1.71:8787";
-  var GITHUB_REMOTE_CFG = "https://raw.githubusercontent.com/tmq9999/quangtesst/main/remote-config.json";
+  var isGoogleOneTargetRoute = appName === "Google One iOS" &&
+    /^https:\/\/one\.google\.com\/(?:u\/\d+\/)?(?:ai|plans|subscribe|upsell|about\/plans)(?:[/?#]|$)/.test(url);
+  var isMultiAppTargetRoute = appName !== "Google One iOS" &&
+    !(/\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|mp4|mp3|css)(?:\?|$)/i.test(url));
 
-  if (!/^https:\/\/one\.google\.com\/(?:u\/\d+\/)?(?:ai|plans|subscribe|upsell|about\/plans)(?:[/?#]|$)/.test(url)) {
+  if (!isGoogleOneTargetRoute && !isMultiAppTargetRoute) {
     if (lastScanReport && lastScanReport.candidateCount > 0 &&
         typeof $httpClient === "object" && $httpClient && typeof $httpClient.post === "function") {
       try {
@@ -461,6 +557,7 @@ function createG1MappingConfig(store) {
           timeout: 1,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            app: appName,
             url: url,
             version: VERSION,
             mode: MODE,
@@ -472,6 +569,7 @@ function createG1MappingConfig(store) {
             annualHitCount: 0,
             matchedFrom: [],
             foundSkus: lastScanReport.foundList,
+            allStoredSkus: lastScanReport.allStoredSkus,
             scanStatus: lastScanReport.status,
             scannedResponses: lastScanReport.scannedResponses,
             logs: lastScanReport.logs
@@ -506,10 +604,112 @@ function createG1MappingConfig(store) {
       if (typeof $persistentStore !== "undefined" && typeof $persistentStore.write === "function") {
         $persistentStore.write(JSON.stringify(toSave), mappingEngine.key);
       }
-      return mappingEngine.read();
+      var st = mappingEngine.read();
+      st.forceAppleIap = parsed.forceAppleIap !== false;
+      return st;
     } catch (e) {
       return null;
     }
+  }
+
+  function buildWebViewHookScript(activeConfig) {
+    var activeRulesJson = JSON.stringify((activeConfig && Array.isArray(activeConfig.rules)) ? activeConfig.rules.filter(function (r) { return r.enabled; }) : []);
+    var forceAppleIap = (!activeConfig || activeConfig.forceAppleIap !== false) ? "true" : "false";
+    var appLabel = JSON.stringify(appName);
+    return '<script id="g1-ios-webview-hook">(function(){' +
+      'if(window.__g1IosHooked)return;window.__g1IosHooked=true;' +
+      'var RULES=' + activeRulesJson + ';' +
+      'var FORCE_APPLE_IAP=' + forceAppleIap + ';' +
+      'var APP_NAME=' + appLabel + ';' +
+      'var SKU_RE=/(?:x\\.subscription\\.|x-subscription-|grok\\.|supergrok\\.|xpass\\.|sku_|com\\.x\\.|ai\\.x\\.|com\\.openai\\.|chatgpt[._]|gpt[._]|com\\.anthropic\\.|claude[._])[A-Za-z0-9._-]+/g;' +
+      'function resolveRule(id){' +
+        'for(var i=0;i<RULES.length;i++){' +
+          'var r=RULES[i];if(!r.enabled)continue;' +
+          'if(r.match==="exact"&&r.from===id)return r;' +
+          'if(r.match==="prefix"&&id.indexOf(r.from)===0)return r;' +
+        '}return null;' +
+      '}' +
+      'function sendTelemetry(tag,found,rewrites,extraLogs){' +
+        'try{' +
+          'fetch("/__pc_bridge/telemetry?t="+Date.now(),{' +
+            'method:"POST",headers:{"Content-Type":"application/json"},' +
+            'body:JSON.stringify({' +
+              'app:APP_NAME,url:location.href+" ["+tag+"]",version:"g1-acq-v7.13-webview-hook",mode:"custom",' +
+              'configSource:"ios-wkwebview",runtimeStatus:rewrites.length?"rewritten":"scan-only",' +
+              'hitCount:rewrites.reduce(function(a,x){return a+(x.count||1);},0),' +
+              'matchedFrom:rewrites,foundSkus:found,logs:extraLogs||[]' +
+            '})' +
+          '}).then(function(r){return r.json();}).then(function(cfg){' +
+            'if(cfg&&Array.isArray(cfg.rules)){RULES=cfg.rules.filter(function(x){return x.enabled;});}' +
+            'if(cfg&&typeof cfg.forceAppleIap==="boolean"){FORCE_APPLE_IAP=cfg.forceAppleIap;}' +
+          '}).catch(function(){});' +
+        '}catch(e){}' +
+      '}' +
+      'function scanAndRewriteText(raw,tag){' +
+        'if(typeof raw!=="string"||!raw)return {text:raw,changed:false};' +
+        'var foundMap={},rwMap={},changed=false,logs=[];' +
+        'var m;SKU_RE.lastIndex=0;' +
+        'while((m=SKU_RE.exec(raw))!==null){foundMap[m[0]]=(foundMap[m[0]]||0)+1;}' +
+        'var kvRe=/"(?:productId|genericProductId|externalProductId|externalOfferId|offerId|skuId)"\\s*:\\s*"([^"]+)"/g;' +
+        'while((m=kvRe.exec(raw))!==null){foundMap[m[1]]=(foundMap[m[1]]||0)+1;}' +
+        'var out=raw.replace(SKU_RE,function(tok){' +
+          'var rule=resolveRule(tok);if(!rule)return tok;' +
+          'changed=true;if(!rwMap[tok])rwMap[tok]={id:tok,to:rule.to,count:0};rwMap[tok].count++;' +
+          'return rule.to;' +
+        '});' +
+        'if(FORCE_APPLE_IAP&&out.indexOf("advancedCommerceJws")!==-1){' +
+          'out=out.replace(/"platform"\\s*:\\s*"APPLE"/g,"\\"platform\\":\\"APPLE_IAP\\"")' +
+                 '.replace(/"case"\\s*:\\s*"apple"/g,"\\"case\\":\\"appleIap\\"")' +
+                 '.replace(/"genericProductId"\\s*:/g,"\\"productId\\":");' +
+          'changed=true;logs.push("[g1-acq] WEBVIEW_FORCE_APPLE_IAP enabled");' +
+        '}' +
+        'var foundList=Object.keys(foundMap).map(function(k){return {id:k,count:foundMap[k]};});' +
+        'var rwList=Object.keys(rwMap).map(function(k){return rwMap[k];});' +
+        'if(foundList.length||rwList.length||logs.length){' +
+          'logs.unshift("[g1-acq] WKWebView "+tag+" skus="+foundList.length+" rewrites="+rwList.length);' +
+          'sendTelemetry(tag,foundList,rwList,logs);' +
+        '}' +
+        'return {text:out,changed:changed};' +
+      '}' +
+      'function hookWebkitHandlers(){' +
+        'try{' +
+          'var mh=window.webkit&&window.webkit.messageHandlers;' +
+          'if(!mh)return;' +
+          'var names=Object.keys(mh);' +
+          'if(names.length){sendTelemetry("WEBKIT_BRIDGE_DISCOVERED",names.map(function(n){return {id:"webkit."+n,count:1};}),[],["[g1-acq] Discovered iOS webkit.messageHandlers: "+names.join(", ")]);}' +
+          'names.forEach(function(name){' +
+            'var handler=mh[name];' +
+            'if(!handler||handler.__g1Wrapped||typeof handler.postMessage!=="function")return;' +
+            'var orig=handler.postMessage.bind(handler);' +
+            'handler.postMessage=function(msg){' +
+              'try{' +
+                'var str=typeof msg==="string"?msg:JSON.stringify(msg);' +
+                'var res=scanAndRewriteText(str,"webkit."+name);' +
+                'sendTelemetry("STOREKIT_POSTMESSAGE_"+name,res.changed?[{id:"webkit."+name,count:1}]:[],[],["[g1-acq] iOS Bridge webkit.messageHandlers."+name+".postMessage("+str.slice(0,300)+")"]);' +
+                'if(res.changed){msg=typeof msg==="string"?res.text:JSON.parse(res.text);}' +
+              '}catch(e){}' +
+              'return orig(msg);' +
+            '};' +
+            'handler.__g1Wrapped=true;' +
+          '});' +
+        '}catch(e){}' +
+      '}' +
+      'hookWebkitHandlers();setTimeout(hookWebkitHandlers,800);setTimeout(hookWebkitHandlers,2500);' +
+      'var origFetch=window.fetch;' +
+      'if(typeof origFetch==="function"){' +
+        'window.fetch=async function(){' +
+          'var reqUrl=typeof arguments[0]==="string"?arguments[0]:(arguments[0]&&arguments[0].url)||"";' +
+          'var resp=await origFetch.apply(this,arguments);' +
+          'if(reqUrl.indexOf("__pc_bridge")!==-1)return resp;' +
+          'try{' +
+            'var clone=resp.clone();' +
+            'clone.text().then(function(txt){scanAndRewriteText(txt,"fetch:"+reqUrl.slice(0,80));}).catch(function(){});' +
+          '}catch(e){}' +
+          'return resp;' +
+        '};' +
+      '}' +
+      'setTimeout(function(){scanAndRewriteText(document.documentElement.innerHTML,"DOM_INITIAL");},600);' +
+    '})();</script>';
   }
 
   function executeRewriteAndFinish(activeConfig, configSource) {
@@ -519,10 +719,11 @@ function createG1MappingConfig(store) {
     var hits = 0;
     var annualHits = 0;
     var out = body;
+    var bodyModified = false;
 
     if (typeof body === "string" && !activeError) {
       out = body.replace(
-        /(^|[^A-Za-z0-9._@%-])((?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]+)(?=$|[^A-Za-z0-9._-])/g,
+        MULTI_SKU_TOKEN_RE,
         function (match, before, id) {
           var rule = mappingEngine.resolve(id, activeConfig);
           if (!rule) return match;
@@ -530,10 +731,32 @@ function createG1MappingConfig(store) {
           if (!mappings[id]) mappings[id] = { id: id, to: rule.to, count: 0, fallback: false };
           mappings[id].count += 1;
           hits += 1;
+          bodyModified = true;
           if (isAnnual) annualHits += 1;
           return before + rule.to;
         }
       );
+
+      // Grok iOS APPLE_IAP downgrade option (bypasses server-signed advancedCommerceJws when testing APPLE_IAP SKUs)
+      if (appName === "Grok iOS" && activeConfig.forceAppleIap !== false &&
+          (out.indexOf('"platform":"APPLE"') !== -1 || out.indexOf('"case":"apple"') !== -1)) {
+        out = out
+          .replace(/"platform"\s*:\s*"APPLE"/g, '"platform":"APPLE_IAP"')
+          .replace(/"case"\s*:\s*"apple"/g, '"case":"appleIap"')
+          .replace(/"genericProductId"\s*:/g, '"productId":');
+        bodyModified = true;
+      }
+
+      // Inject In-WebView Hook on Grok / ChatGPT / Claude HTML documents
+      if (appName !== "Google One iOS" && /<(?:!doctype\s+html|html|head)\b/i.test(out) && out.indexOf("g1-ios-webview-hook") === -1) {
+        var hookTag = buildWebViewHookScript(activeConfig);
+        if (/<head[^>]*>/i.test(out)) {
+          out = out.replace(/<head[^>]*>/i, function (m) { return m + hookTag; });
+        } else {
+          out = hookTag + out;
+        }
+        bodyModified = true;
+      }
     }
 
     var sources = Object.keys(mappings).sort().map(function (id) {
@@ -557,14 +780,14 @@ function createG1MappingConfig(store) {
     };
 
     try {
-      if (typeof $persistentStore !== "undefined" &&
+      if (appName === "Google One iOS" && typeof $persistentStore !== "undefined" &&
           typeof $persistentStore.write === "function") {
         $persistentStore.write(JSON.stringify(record), TEST_KEY);
       }
     } catch (error) {}
 
     var runtimeLines = [
-      "[g1-acq] " + VERSION + " source=" + configSource + " status=" + record.status + " hits=" + hits + " annualHits=" + annualHits + " mode=" + activeMode + " rev=" + String(activeConfig.revision || "").slice(0, 10)
+      "[g1-acq] [" + appName + "] " + VERSION + " source=" + configSource + " status=" + record.status + " hits=" + hits + " mode=" + activeMode + " rev=" + String(activeConfig.revision || "").slice(0, 10)
     ];
     console.log(runtimeLines[0]);
     sources.forEach(function (source) {
@@ -573,7 +796,11 @@ function createG1MappingConfig(store) {
       console.log(line);
     });
 
-    if (typeof $httpClient === "object" && $httpClient && typeof $httpClient.post === "function") {
+    var shouldReportTelemetry = appName === "Google One iOS" || hits > 0 || bodyModified ||
+      (lastScanReport && lastScanReport.candidateCount > 0) ||
+      /(?:paywall|plans|prepurchase|acquire|subscription|cart|check)/i.test(url);
+
+    if (shouldReportTelemetry && typeof $httpClient === "object" && $httpClient && typeof $httpClient.post === "function") {
       try {
         var allLogs = (lastScanReport && Array.isArray(lastScanReport.logs) ? lastScanReport.logs : []).concat(runtimeLines);
         $httpClient.post({
@@ -581,12 +808,13 @@ function createG1MappingConfig(store) {
           timeout: 1,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            app: appName,
             url: url,
             version: VERSION,
             mode: activeMode,
             mappingStatus: activeConfig.status,
             mappingRevision: activeConfig.revision,
-            runtimeStatus: record.status,
+            runtimeStatus: hits > 0 ? "rewritten" : (lastScanReport && lastScanReport.candidateCount > 0 ? "scan-only" : record.status),
             configSource: configSource,
             hitCount: hits,
             annualHitCount: annualHits,
@@ -603,7 +831,17 @@ function createG1MappingConfig(store) {
       } catch (e) {}
     }
 
-    finishOnce(hits ? { body: out } : {});
+    if (bodyModified) {
+      var respHeaders = (typeof $response === "object" && $response && $response.headers) ? Object.assign({}, $response.headers) : undefined;
+      if (respHeaders && appName !== "Google One iOS") {
+        Object.keys(respHeaders).forEach(function (k) {
+          if (/^content-security-policy/i.test(k)) delete respHeaders[k];
+        });
+      }
+      finishOnce(respHeaders ? { body: out, headers: respHeaders } : { body: out });
+    } else {
+      finishOnce({});
+    }
   }
 
   if (typeof $httpClient === "object" && $httpClient && typeof $httpClient.get === "function") {
@@ -649,10 +887,9 @@ function createG1MappingConfig(store) {
 
     var byId = Object.create(null);
     var ids = [];
-    var validId = /^(?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]{1,160}$/;
     var oldRows = Array.isArray(saved.skus) ? saved.skus : [];
     oldRows.slice(0, SCAN_LIMIT).forEach(function (row) {
-      if (!row || typeof row.id !== "string" || !validId.test(row.id) || byId[row.id]) return;
+      if (!row || typeof row.id !== "string" || !MULTI_VALID_ID_RE.test(row.id) || byId[row.id]) return;
       var count = Number(row.count);
       byId[row.id] = {
         id: row.id,
@@ -668,28 +905,37 @@ function createG1MappingConfig(store) {
     var addedCount = 0;
     var omittedCount = 0;
     var truncated = saved.truncated === true;
-    if (isText) {
-      // Decode escaped dots on a discovery copy before rewriting the original body.
-      var text = originalBody.replace(/\\u002e|\\x2e|&#0*46;|&#x0*2e;|&period;/gi, ".");
-      var token = /(^|[^A-Za-z0-9._@%-])((?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]+)(?=$|[^A-Za-z0-9._-])/g;
-      var match;
-      while ((match = token.exec(text)) !== null) {
-        var id = match[2];
-        if (!validId.test(id)) continue;
-        found[id] = (found[id] || 0) + 1;
-        hitCount += 1;
-        if (!byId[id]) {
-          if (ids.length >= SCAN_LIMIT) {
-            truncated = true;
-            if (found[id] === 1) omittedCount += 1;
-            continue;
-          }
-          byId[id] = { id: id, count: 0, lastSeen: now };
-          ids.push(id);
-          addedCount += 1;
+
+    function recordFoundId(id) {
+      if (!id || typeof id !== "string" || id.length < 3 || id.length > 160) return;
+      found[id] = (found[id] || 0) + 1;
+      hitCount += 1;
+      if (!MULTI_VALID_ID_RE.test(id)) return;
+      if (!byId[id]) {
+        if (ids.length >= SCAN_LIMIT) {
+          truncated = true;
+          if (found[id] === 1) omittedCount += 1;
+          return;
         }
-        byId[id].count += 1;
-        byId[id].lastSeen = now;
+        byId[id] = { id: id, count: 0, lastSeen: now };
+        ids.push(id);
+        addedCount += 1;
+      }
+      byId[id].count += 1;
+      byId[id].lastSeen = now;
+    }
+
+    if (isText) {
+      var text = originalBody.replace(/\\u002e|\\x2e|&#0*46;|&#x0*2e;|&period;/gi, ".");
+      var match;
+      MULTI_SKU_TOKEN_RE.lastIndex = 0;
+      while ((match = MULTI_SKU_TOKEN_RE.exec(text)) !== null) {
+        recordFoundId(match[2]);
+      }
+      // Also extract explicit productId / genericProductId / externalProductId / offerId fields in JSON responses
+      var jsonFieldRe = /"(?:productId|genericProductId|externalProductId|externalOfferId|apple_product_id|store_product_id)"\s*:\s*"([A-Za-z0-9._-]{3,120})"/g;
+      while ((match = jsonFieldRe.exec(text)) !== null) {
+        recordFoundId(match[1]);
       }
     }
 

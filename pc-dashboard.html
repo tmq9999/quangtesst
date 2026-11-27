@@ -492,6 +492,10 @@
       🔄 4. Tự Động Cập Nhật Repo Gốc
       <span class="tab-badge" id="badge-upstream-count">Auto</span>
     </button>
+    <button type="button" class="tab-link" data-tab="multiapp">
+      🕵️ 5. Dò SKU Ẩn Đa App iOS (Grok · GPT · Claude)
+      <span class="tab-badge" id="badge-multiapp-count" style="background:#059669;color:#fff">MỚI</span>
+    </button>
   </nav>
 
   <main class="main-container">
@@ -794,6 +798,102 @@
 
     </section>
 
+    <!-- ========================================================= -->
+    <!-- TAB 5: DÒ SKU ẨN ĐA APP iOS (GROK · CHATGPT · CLAUDE)     -->
+    <!-- ========================================================= -->
+    <section class="tab-content" id="panel-multiapp">
+
+      <!-- Cấu Hình MITM Đa App & Chế Độ Ép APPLE_IAP -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">🕵️ Cấu Hình Bắt Gói MITM Đa App & Ép Nhánh StoreKit (`APPLE_IAP`) Cho Grok iOS</h2>
+            <div class="card-subtitle">
+              Màn hình Paywall của <strong>Grok iOS</strong> chạy trên <code>WKWebView</code> (<code>https://grok.com/com/paywall/webview</code>). Khi bật chế độ <strong>Ép nhánh APPLE_IAP</strong>, hệ thống tự động tiêm Hook vào WebView của Grok iOS để bắt cầu nối <code>window.webkit.messageHandlers</code> và hạ từ <code>APPLE</code> (khoá chữ ký JWS) xuống <code>APPLE_IAP</code> (<code>productId</code> StoreKit thuần).
+            </div>
+          </div>
+          <div class="toolbar">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-sim-grok">🧪 Bắn gói test Grok iOS</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:center;margin-bottom:14px">
+            <label style="display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#34d399;cursor:pointer">
+              <input type="checkbox" id="chk-force-apple-iap" style="width:19px;height:19px" checked>
+              🔓 Ép Grok iOS dùng nhánh APPLE_IAP (Bỏ khoá chữ ký advancedCommerceJws)
+            </label>
+          </div>
+          <div style="padding-top:12px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:18px;align-items:center">
+            <strong style="color:#93c5fd">Các domain đưa vào [MITM] trong link Module LAN:</strong>
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="chk-mitm-g1" style="width:17px;height:17px" checked disabled> Google One (<code>one.google.com</code>)
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;color:#38bdf8">
+              <input type="checkbox" id="chk-mitm-grok-pw" style="width:17px;height:17px" checked> Grok iOS Paywall (<code>grok.com, subscriptions.x.com</code>)
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="chk-mitm-grok-api" style="width:17px;height:17px"> Grok Native API (<code>*.x.ai</code> — chỉ bật khi cần)
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="chk-mitm-chatgpt" style="width:17px;height:17px"> ChatGPT (<code>chatgpt.com, *.openai.com</code>)
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="chk-mitm-claude" style="width:17px;height:17px"> Claude (<code>claude.ai, *.anthropic.com</code>)
+            </label>
+          </div>
+          <div class="muted" style="margin-top:10px;font-size:12.5px">
+            💡 Lưu ý: Sau khi thay đổi tick chọn domain MITM ở trên, hãy mở <strong>Shadowrocket → Tab Mô-đun</strong> trên iPhone và bấm <strong>Cập nhật module</strong> để nạp danh sách hostname MITM mới. (Còn việc đổi mã SKU bên dưới thì có tác dụng <strong>ngay lập tức 0ms</strong> không cần cập nhật module!).
+          </div>
+        </div>
+      </div>
+
+      <!-- Khung Bắn Thử Nhanh 1 Mã productId Vào Cả 4 Tab Của Grok iOS -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">🎯 Bắn Thử Trực Tiếp Mã `productId` Ẩn Vào Nút Mua Của Grok iOS</h2>
+            <div class="card-subtitle">
+              Nhập bất kỳ mã <code>productId</code> ứng viên nào hoặc bấm nút <strong>⚡ Gắn thử vào Grok iOS</strong> ở danh sách bên dưới: hệ thống sẽ gán cả 4 tab (<code>Plus / Premium / Super / Ultra</code>) trỏ về mã đó. Bạn chỉ cần mở Paywall trong app Grok trên iPhone và bấm nút Subscribe để xem Apple StoreKit có bật bảng giá không!
+            </div>
+          </div>
+          <div class="toolbar">
+            <input type="text" id="inp-custom-grok-sku" class="input-ctrl" value="grok.pro.monthly.30" placeholder="Nhập productId (vd: grok.pro.monthly.30)..." style="width:290px">
+            <button type="button" class="btn btn-success" id="btn-probe-custom-grok">⚡ Gắn Mã Này Vào 4 Tab Grok iOS</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="multiapp-candidates-grid" class="preset-grid"></div>
+        </div>
+      </div>
+
+      <!-- Bảng Nhật Ký Bắt Gói Riêng Của Grok / ChatGPT / Claude -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">📡 Nhật Ký Bắt Gói & Cầu Nối StoreKit Từ Grok / ChatGPT / Claude (<span id="multiapp-pkt-count">0</span> Gói)</h2>
+            <div class="card-subtitle">Mọi gói tin Paywall, danh sách <code>window.webkit.messageHandlers</code> và mã SKU bắt được từ các ứng dụng ngoài Google One sẽ hiện tại đây.</div>
+          </div>
+        </div>
+        <div class="card-body no-pad">
+          <div class="table-responsive">
+            <table class="std-table">
+              <thead>
+                <tr>
+                  <th style="width:140px">Thời Gian</th>
+                  <th style="width:160px">Ứng Dụng & Nguồn</th>
+                  <th style="width:280px">URL / Cầu Nối WebKit</th>
+                  <th>Kết Quả Ghi Đè SKU</th>
+                  <th style="width:340px">Mã SKU & Handler Phát Hiện</th>
+                </tr>
+              </thead>
+              <tbody id="multiapp-packets-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
   </main>
 
   <div class="toast" id="toast"></div>
@@ -834,7 +934,7 @@
           var isMatch = links[i].getAttribute("data-tab") === tabName;
           links[i].classList.toggle("active", isMatch);
         }
-        var panels = ["presets", "rules", "runtime", "upstream"];
+        var panels = ["presets", "rules", "runtime", "upstream", "multiapp"];
         for (var j = 0; j < panels.length; j++) {
           var panel = document.getElementById("panel-" + panels[j]);
           if (panel) panel.classList.toggle("active", panels[j] === tabName);
@@ -1024,8 +1124,9 @@
                 '<span class="muted" style="font-size:12px">' + escapeHtml(String(pkt.at || "").slice(0, 10)) + '</span>' +
               '</td>' +
               '<td>' +
-                '<span class="badge badge-info">' + escapeHtml(String(pkt.source || "pc-lan").toUpperCase()) + '</span><br>' +
-                '<span class="muted" style="font-size:12.5px;font-family:var(--mono)">📱 ' + escapeHtml(pkt.clientIp || "iPhone") + '</span>' +
+                '<span class="badge ' + (pkt.app && pkt.app !== "Google One iOS" ? "badge-success" : "badge-info") + '" style="margin-bottom:4px">' + escapeHtml(pkt.app || "Google One iOS") + '</span><br>' +
+                '<span class="badge badge-neutral">' + escapeHtml(String(pkt.source || "pc-lan").toUpperCase()) + '</span><br>' +
+                '<span class="muted" style="font-size:12px;font-family:var(--mono)">📱 ' + escapeHtml(pkt.clientIp || "iPhone") + '</span>' +
               '</td>' +
               '<td style="word-break:break-all;font-family:var(--mono);font-size:12.5px;color:#93c5fd">' +
                 escapeHtml(pkt.url) +
@@ -1189,6 +1290,154 @@
         }
       }
 
+      var MULTIAPP_CANDIDATE_GROUPS = [
+        {
+          title: "🔥 1. Nhóm Grok iOS StoreKit Gốc (Apple Subscription Group 21630009)",
+          desc: "Trích xuất trực tiếp từ supergrok_subscriptions trong cấu hình gốc của Grok. Dùng kèm chế độ Ép nhánh APPLE_IAP để gọi thẳng StoreKit không cần JWS.",
+          items: [
+            { sku: "grok.pro.monthly.30", note: "SuperGrok Pro Tháng gốc ($30 / StoreKit Group 21630009)" },
+            { sku: "supergrok.pro.monthly.300", note: "SuperGrok Heavy / Pro 300 gốc (StoreKit Group 21630009)" },
+            { sku: "grok.lite", note: "Mã định danh gói SuperGrok Lite nội bộ (default_tier_product_id)" },
+            { sku: "grok.plus", note: "Mã định danh gói SuperGrok Plus nội bộ" },
+            { sku: "grok.pro", note: "Mã định danh gói SuperGrok Pro nội bộ" },
+            { sku: "grok.ultra", note: "Mã định danh gói SuperGrok Ultra nội bộ" }
+          ]
+        },
+        {
+          title: "⚡ 2. Nhóm Grok XPASS & Các Biến Thể Dò Trial / Annual / Promo Ẩn",
+          desc: "4 mã XPASS chính thức và các biến thể quy ước đặt tên của xAI trên App Store Connect để bấm dò bảng Apple Pay.",
+          items: [
+            { sku: "x.subscription.premium", note: "Tab Plus (Grok / XPASS Tier 1)" },
+            { sku: "x.subscription.plus", note: "Tab Premium (Grok / XPASS Tier 2 - Có gói pay1get3 3 tháng)" },
+            { sku: "x.subscription.super", note: "Tab SuperGrok (Grok / XPASS Tier 3)" },
+            { sku: "x.subscription.ultra", note: "Tab Ultra (Grok / XPASS Tier 4 - Có gói pay1get3 3 tháng)" },
+            { sku: "grok.lite.monthly", note: "Ứng viên dò SuperGrok Lite Monthly" },
+            { sku: "grok.lite.monthly.trial", note: "Ứng viên dò SuperGrok Lite Free Trial" },
+            { sku: "grok.pro.monthly.trial", note: "Ứng viên dò SuperGrok Pro Free Trial (3-day / 7-day)" },
+            { sku: "grok.pro.yearly.300", note: "Ứng viên dò SuperGrok Pro Yearly" },
+            { sku: "supergrok.pro.yearly", note: "Ứng viên dò SuperGrok Yearly" },
+            { sku: "grok.credits.fee30.5", note: "Gói nạp Credits Grok $5 (native_checkout_product_ids)" },
+            { sku: "grok.credits.fee30.20", note: "Gói nạp Credits Grok $20" },
+            { sku: "grok.credits.fee30.50", note: "Gói nạp Credits Grok $50" },
+            { sku: "grok.credits.fee30.100", note: "Gói nạp Credits Grok $100" }
+          ]
+        },
+        {
+          title: "🤖 3. Nhóm ChatGPT & Claude iOS IAP (Metadata App Store iOS)",
+          desc: "Các gói In-App Purchase ghi nhận trên App Store iOS của ChatGPT (id6448311069 - có gói mới ChatGPT Go $8!) và Claude (id6473753684).",
+          items: [
+            { sku: "chatgpt_go_monthly", note: "ChatGPT Go ($8.00/tháng — Gói giá rẻ mới trên App Store iOS)" },
+            { sku: "chatgpt_plus_monthly", note: "ChatGPT Plus ($19.99/tháng)" },
+            { sku: "chatgpt_plus_yearly", note: "ChatGPT Plus Annual ($200.00/năm)" },
+            { sku: "chatgpt_pro_200", note: "ChatGPT Pro 200 ($200.00/tháng)" },
+            { sku: "chatgpt_pro_500", note: "ChatGPT Pro 500 ($500.00/tháng)" },
+            { sku: "claude_pro_monthly", note: "Claude Pro - Monthly ($20.00)" },
+            { sku: "claude_max_monthly", note: "Claude Max - Monthly ($124.99)" },
+            { sku: "claude_ultra_monthly", note: "Claude Ultra - Monthly" }
+          ]
+        }
+      ];
+
+      function renderMultiApp() {
+        if (!appState || !appState.config) return;
+        var cfg = appState.config;
+        var mitm = cfg.mitmApps || { googleOne: true, grokPaywall: true, grokApi: false, chatgpt: false, claude: false };
+
+        document.getElementById("chk-force-apple-iap").checked = cfg.forceAppleIap !== false;
+        document.getElementById("chk-mitm-grok-pw").checked = mitm.grokPaywall !== false;
+        document.getElementById("chk-mitm-grok-api").checked = Boolean(mitm.grokApi);
+        document.getElementById("chk-mitm-chatgpt").checked = Boolean(mitm.chatgpt);
+        document.getElementById("chk-mitm-claude").checked = Boolean(mitm.claude);
+
+        var grid = document.getElementById("multiapp-candidates-grid");
+        grid.innerHTML = MULTIAPP_CANDIDATE_GROUPS.map(function (grp) {
+          var rows = grp.items.map(function (it) {
+            return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px dashed #1f2937">' +
+              '<div style="min-width:0">' +
+                '<code style="font-size:13px;font-weight:700">' + escapeHtml(it.sku) + '</code>' +
+                '<div class="muted" style="font-size:12px">' + escapeHtml(it.note) + '</div>' +
+              '</div>' +
+              '<div style="display:flex;gap:6px;flex-shrink:0">' +
+                '<button type="button" class="btn btn-success btn-sm" style="padding:4px 9px;font-size:11.5px" data-action="probe-grok-sku" data-sku="' + escapeHtml(it.sku) + '">⚡ Gắn 4 Tab Grok</button>' +
+                '<button type="button" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:11.5px" data-action="use-sku-target" data-sku="' + escapeHtml(it.sku) + '">+ Rule</button>' +
+              '</div>' +
+            '</div>';
+          }).join("");
+          return '<div class="preset-card">' +
+            '<div class="preset-title">' + escapeHtml(grp.title) + '</div>' +
+            '<p class="preset-desc">' + escapeHtml(grp.desc) + '</p>' +
+            '<div style="background:#0b0f19;border:1px solid var(--border);border-radius:8px;padding:8px 12px;max-height:310px;overflow-y:auto">' + rows + '</div>' +
+          '</div>';
+        }).join("");
+
+        var multiPkts = (appState.telemetry || []).filter(function (p) {
+          return p.app && p.app !== "Google One iOS";
+        });
+        document.getElementById("multiapp-pkt-count").textContent = multiPkts.length;
+        document.getElementById("badge-multiapp-count").textContent = multiPkts.length ? (multiPkts.length + " gói") : "Grok iOS";
+
+        var tbody = document.getElementById("multiapp-packets-tbody");
+        if (!multiPkts.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="muted" style="text-align:center;padding:26px">Chưa có gói tin nào từ Grok / ChatGPT / Claude. Hãy mở màn hình Nâng cấp gói trong app Grok trên iPhone (hoặc bấm "🧪 Bắn gói test Grok iOS" ở góc trên để xem thử).</td></tr>';
+        } else {
+          tbody.innerHTML = multiPkts.map(function (pkt) {
+            var rwHtml = (pkt.matchedFrom && pkt.matchedFrom.length)
+              ? pkt.matchedFrom.map(function (m) {
+                  return '<div class="rewrite-item"><strong>' + escapeHtml(m.id) + '</strong> <span style="color:#34d399">━━►</span> <strong style="color:#34d399">' + escapeHtml(m.to) + '</strong> <span class="badge badge-success" style="margin-left:auto">×' + Number(m.count || 1) + '</span></div>';
+                }).join("")
+              : '<span class="badge badge-info">Chế độ Sniffer / Quét SKU</span>';
+            var skusHtml = (pkt.foundSkus && pkt.foundSkus.length)
+              ? pkt.foundSkus.map(function (s) {
+                  return '<span class="sku-tag"><code>' + escapeHtml(s.id) + '</code> <strong style="color:#38bdf8">×' + Number(s.count || 1) + '</strong> <button type="button" class="btn btn-primary btn-sm" style="padding:2px 6px;font-size:11px" data-action="use-sku" data-sku="' + escapeHtml(s.id) + '">+ Dùng</button></span>';
+                }).join("")
+              : '<span class="muted">--</span>';
+            return '<tr>' +
+              '<td style="font-family:var(--mono)"><strong>' + escapeHtml(formatTimeVN(pkt.at)) + '</strong></td>' +
+              '<td><span class="badge badge-success">' + escapeHtml(pkt.app) + '</span><br><span class="muted" style="font-size:12px">' + escapeHtml(pkt.source) + '</span></td>' +
+              '<td style="word-break:break-all;font-family:var(--mono);font-size:12.5px;color:#93c5fd">' + escapeHtml(pkt.url) + '</td>' +
+              '<td>' + rwHtml + '</td>' +
+              '<td>' + skusHtml + '</td>' +
+            '</tr>';
+          }).join("");
+        }
+      }
+
+      async function saveMultiAppSettings() {
+        var payload = {
+          forceAppleIap: document.getElementById("chk-force-apple-iap").checked,
+          mitmApps: {
+            googleOne: true,
+            grokPaywall: document.getElementById("chk-mitm-grok-pw").checked,
+            grokApi: document.getElementById("chk-mitm-grok-api").checked,
+            chatgpt: document.getElementById("chk-mitm-chatgpt").checked,
+            claude: document.getElementById("chk-mitm-claude").checked
+          }
+        };
+        await fetch("/api/multiapp/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        await fetchState(true);
+        showToast("Đã cập nhật cấu hình MITM Đa App & chế độ APPLE_IAP!");
+      }
+
+      async function probeGrokWithTargetSku(targetSku) {
+        var res = await fetch("/api/multiapp/probe-grok", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ targetSku: targetSku })
+        });
+        var data = await res.json();
+        if (data.ok) {
+          document.getElementById("inp-custom-grok-sku").value = targetSku;
+          await fetchState(false);
+          showToast("⚡ Đã gắn [" + targetSku + "] vào cả 4 Tab của Grok iOS! Mở Paywall Grok trên iPhone và bấm thử!");
+        } else {
+          alert("Lỗi: " + data.error);
+        }
+      }
+
       async function fetchState(preserveDraft) {
         if (logPaused && preserveDraft) return;
         try {
@@ -1203,6 +1452,7 @@
           if (!preserveDraft) renderRules();
           renderRuntime();
           renderUpstream();
+          renderMultiApp();
         } catch (e) {}
       }
 
@@ -1350,6 +1600,12 @@
           }
           return;
         }
+
+        if (action === "probe-grok-sku") {
+          var grokTarget = actionBtn.getAttribute("data-sku");
+          if (grokTarget) probeGrokWithTargetSku(grokTarget);
+          return;
+        }
       });
 
       document.addEventListener("input", function (ev) {
@@ -1389,7 +1645,22 @@
         if (el.id === "filter-preset-origin") renderPresets();
         if (el.id === "chk-auto-upstream" || el.id === "sel-upstream-interval" || el.id === "chk-auto-sync-source") {
           saveUpstreamSettings();
+          return;
         }
+        if (el.id === "chk-force-apple-iap" || el.id === "chk-mitm-grok-pw" || el.id === "chk-mitm-grok-api" || el.id === "chk-mitm-chatgpt" || el.id === "chk-mitm-claude") {
+          saveMultiAppSettings();
+        }
+      });
+
+      document.getElementById("btn-probe-custom-grok").addEventListener("click", function () {
+        var val = (document.getElementById("inp-custom-grok-sku").value || "").trim();
+        if (val) probeGrokWithTargetSku(val);
+      });
+
+      document.getElementById("btn-sim-grok").addEventListener("click", async function () {
+        await fetch("/api/multiapp/simulate-grok", { method: "POST" });
+        await fetchState(true);
+        showToast("Đã bắn 1 gói tin giả lập Grok iOS WKWebView (kèm cầu nối webkit.messageHandlers)!");
       });
 
       document.getElementById("btn-copy-module-url").addEventListener("click", function () {

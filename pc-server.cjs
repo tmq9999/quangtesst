@@ -125,7 +125,13 @@ function readRemoteConfig() {
   try {
     const raw = fs.readFileSync(REMOTE_CONFIG_PATH, "utf8");
     const parsed = JSON.parse(raw);
-    if (parsed && Array.isArray(parsed.rules)) return parsed;
+    if (parsed && Array.isArray(parsed.rules)) {
+      if (typeof parsed.forceAppleIap !== "boolean") parsed.forceAppleIap = true;
+      if (!parsed.mitmApps || typeof parsed.mitmApps !== "object") {
+        parsed.mitmApps = { googleOne: true, grokPaywall: true, grokApi: false, chatgpt: false, claude: false };
+      }
+      return parsed;
+    }
   } catch (e) {}
   const eng = loadEngine();
   return {
@@ -134,6 +140,8 @@ function readRemoteConfig() {
     updatedAt: new Date().toISOString(),
     activePresetId: "pro-1yuan-20tb",
     customized: true,
+    forceAppleIap: true,
+    mitmApps: { googleOne: true, grokPaywall: true, grokApi: false, chatgpt: false, claude: false },
     rules: eng.defaults()
   };
 }
@@ -630,6 +638,7 @@ let gitSyncStatus = {
 
 function recordTelemetryPacket(body, clientIp, customTimestamp) {
   const now = customTimestamp || new Date().toISOString();
+  const app = String(body.app || (/grok\.com|x\.ai/i.test(String(body.url || "")) ? "Grok iOS" : (/chatgpt|openai/i.test(String(body.url || "")) ? "ChatGPT iOS" : (/claude|anthropic/i.test(String(body.url || "")) ? "Claude iOS" : "Google One iOS"))));
   const hitCount = Number(body.hitCount || 0);
   const matchedFrom = Array.isArray(body.matchedFrom) ? body.matchedFrom : [];
   let foundSkus = Array.isArray(body.foundSkus) ? body.foundSkus.slice() : [];
@@ -721,6 +730,7 @@ function recordTelemetryPacket(body, clientIp, customTimestamp) {
   const entry = {
     id: "pkt-" + Date.now() + "-" + randomHex(4),
     at: now,
+    app: app,
     clientIp: clientIp,
     url: url,
     version: version,
@@ -765,6 +775,8 @@ function saveAndSyncConfig(newRules, presetId = "") {
     updatedAt: new Date().toISOString(),
     activePresetId: presetId,
     customized: true,
+    forceAppleIap: currentConfig.forceAppleIap !== false,
+    mitmApps: currentConfig.mitmApps || { googleOne: true, grokPaywall: true, grokApi: false, chatgpt: false, claude: false },
     rules: checked.rules
   };
   fs.writeFileSync(REMOTE_CONFIG_PATH, JSON.stringify(currentConfig, null, 2) + "\n", "utf8");
@@ -852,11 +864,33 @@ const server = http.createServer(async (req, res) => {
   const activeLanIp = getActiveLanIp();
   const baseLanUrl = `http://${activeLanIp}:${PORT}`;
 
-  // Dynamic Shadowrocket .sgmodule (Works on ANY PC out-of-the-box without GitHub!)
+  // Dynamic Shadowrocket .sgmodule (Supports Google One + Grok iOS Paywall + Optional ChatGPT/Claude)
   if (pathname === "/g1-acq-live.sgmodule" && req.method === "GET") {
+    const mitm = currentConfig.mitmApps || { googleOne: true, grokPaywall: true, grokApi: false, chatgpt: false, claude: false };
+    const hosts = ["one.google.com"];
+    const domainRegexParts = ["one\\.google\\.com"];
+    if (mitm.grokPaywall !== false) {
+      hosts.push("grok.com", "*.grok.com", "subscriptions.x.com");
+      domainRegexParts.push("(?:[a-z0-9.-]+\\.)?grok\\.com", "subscriptions\\.x\\.com");
+    }
+    if (mitm.grokApi) {
+      hosts.push("*.x.ai", "x.ai");
+      domainRegexParts.push("(?:[a-z0-9.-]+\\.)?x\\.ai");
+    }
+    if (mitm.chatgpt) {
+      hosts.push("chatgpt.com", "*.chatgpt.com", "*.openai.com");
+      domainRegexParts.push("(?:[a-z0-9.-]+\\.)?(?:chatgpt|openai)\\.com");
+    }
+    if (mitm.claude) {
+      hosts.push("claude.ai", "*.claude.ai", "*.anthropic.com");
+      domainRegexParts.push("(?:[a-z0-9.-]+\\.)?(?:claude\\.ai|anthropic\\.com)");
+    }
+    const combinedPattern = `^https:\\/\\/(?:${domainRegexParts.join("|")})\\/`;
+    const bridgePattern = `^https:\\/\\/(?:${domainRegexParts.join("|")})\\/__pc_bridge\\/telemetry`;
+
     const sgmoduleContent = [
-      `#!name=G1 ACQ SKU Quản Lý (PC Live Control · ${activeLanIp})`,
-      `#!desc=Điều khiển trực tiếp từ Dashboard PC (${baseLanUrl}). Tự động đồng bộ cấu hình 0ms qua Wi-Fi LAN và bắn log bắt gói realtime về máy tính.`,
+      `#!name=G1 & Multi-App iOS SKU Sniffer (PC Live Control · ${activeLanIp})`,
+      `#!desc=Điều khiển trực tiếp từ Dashboard PC (${baseLanUrl}). Hỗ trợ Google One + Grok iOS Paywall (WKWebView StoreKit Hook) + Dò SKU ẩn đa ứng dụng qua Wi-Fi LAN 0ms.`,
       `#!system=ios`,
       ``,
       `[Rule]`,
@@ -866,11 +900,12 @@ const server = http.createServer(async (req, res) => {
       `IP-CIDR,172.16.0.0/12,DIRECT,no-resolve`,
       ``,
       `[Script]`,
-      `g1-acq = type=http-response,pattern=^https:\\/\\/one\\.google\\.com\\/,requires-body=1,max-size=0,script-path=${baseLanUrl}/scripts/g1-acq.js`,
+      `g1-acq = type=http-response,pattern=${combinedPattern},requires-body=1,max-size=0,script-path=${baseLanUrl}/scripts/g1-acq.js`,
+      `g1-pc-bridge = type=http-request,pattern=${bridgePattern},requires-body=1,max-size=0,script-path=${baseLanUrl}/scripts/g1-acq.js`,
       `g1-sku-report = type=http-request,pattern=^https:\\/\\/one\\.google\\.com\\/g1-sku-report\\/?(?:\\?.*)?$,requires-body=1,max-size=0,script-path=${baseLanUrl}/scripts/g1-sku-report.js`,
       ``,
       `[MITM]`,
-      `hostname = %APPEND% one.google.com`,
+      `hostname = %APPEND% ${hosts.join(", ")}`,
       ``
     ].join("\n");
     res.writeHead(200, {
@@ -917,6 +952,113 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname === "/api/config" && req.method === "GET") {
     sendJson(res, 200, currentConfig);
+    return;
+  }
+
+  if (pathname === "/api/multiapp/settings" && req.method === "POST") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      if (typeof body.forceAppleIap === "boolean") {
+        currentConfig.forceAppleIap = body.forceAppleIap;
+      }
+      if (body.mitmApps && typeof body.mitmApps === "object") {
+        currentConfig.mitmApps = {
+          googleOne: body.mitmApps.googleOne !== false,
+          grokPaywall: body.mitmApps.grokPaywall !== false,
+          grokApi: Boolean(body.mitmApps.grokApi),
+          chatgpt: Boolean(body.mitmApps.chatgpt),
+          claude: Boolean(body.mitmApps.claude)
+        };
+      }
+      currentConfig.revision = randomHex(48);
+      currentConfig.updatedAt = new Date().toISOString();
+      fs.writeFileSync(REMOTE_CONFIG_PATH, JSON.stringify(currentConfig, null, 2) + "\n", "utf8");
+      triggerGitPush(false);
+      sendJson(res, 200, { ok: true, config: currentConfig });
+    } catch (e) {
+      sendJson(res, 400, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  if (pathname === "/api/multiapp/probe-grok" && req.method === "POST") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      const targetSku = String(body.targetSku || "").trim();
+      if (!targetSku) {
+        sendJson(res, 400, { ok: false, error: "Chưa nhập mã SKU đích" });
+        return;
+      }
+      currentConfig.forceAppleIap = true;
+      const grokSources = [
+        "x.subscription.premium",
+        "x.subscription.plus",
+        "x.subscription.super",
+        "x.subscription.ultra"
+      ];
+      const probeRules = grokSources.map((src, i) => ({
+        id: "rule-grok-" + i + "-" + randomHex(6),
+        match: "exact",
+        from: src,
+        to: targetSku,
+        enabled: true
+      }));
+      const result = saveAndSyncConfig(probeRules, "grok-probe-" + targetSku);
+      sendJson(res, result.ok ? 200 : 400, result);
+    } catch (e) {
+      sendJson(res, 400, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  if (pathname === "/api/multiapp/simulate-grok" && req.method === "POST") {
+    try {
+      const eng = loadEngine();
+      const grokSampleSkus = [
+        { id: "x.subscription.premium", count: 2 },
+        { id: "x.subscription.plus", count: 2 },
+        { id: "x.subscription.super", count: 2 },
+        { id: "x.subscription.ultra", count: 2 },
+        { id: "grok.pro.monthly.30", count: 1 },
+        { id: "supergrok.pro.monthly.300", count: 1 },
+        { id: "x-subscription-benefit-plus-launch-25off-6mo", count: 1 },
+        { id: "x-subscription-benefit-test-pay1get3-premium-ultra", count: 1 }
+      ];
+      const activeState = { status: "custom", rules: currentConfig.rules || [] };
+      const matchedMap = Object.create(null);
+      let hits = 0;
+      grokSampleSkus.forEach(s => {
+        const rule = eng.resolve(s.id, activeState);
+        if (rule) {
+          matchedMap[s.id] = { id: s.id, to: rule.to, count: s.count, fallback: false };
+          hits += s.count;
+        }
+      });
+      const matchedFrom = Object.keys(matchedMap).map(k => matchedMap[k]);
+      recordTelemetryPacket({
+        app: "Grok iOS",
+        url: "https://grok.com/com/paywall/webview?platform=ios&source=app [WKWebView]",
+        version: "g1-acq-v7.13-webview-hook",
+        mode: "custom",
+        mappingStatus: "custom",
+        mappingRevision: currentConfig.revision,
+        runtimeStatus: hits > 0 ? "rewritten" : "scan-only",
+        configSource: "ios-wkwebview",
+        hitCount: hits,
+        matchedFrom: matchedFrom,
+        foundSkus: grokSampleSkus,
+        logs: [
+          "[g1-acq] [Grok iOS] WKWebView connected: https://grok.com/com/paywall/webview",
+          "[g1-acq] Discovered iOS webkit.messageHandlers: complatBridge, purchaseHandler, closePaywall",
+          currentConfig.forceAppleIap !== false ? "[g1-acq] WEBVIEW_FORCE_APPLE_IAP enabled (APPLE -> APPLE_IAP)" : "[g1-acq] APPLE JWS mode kept",
+          ...matchedFrom.map(m => `[g1-acq] REWRITE ${m.id} ━━► ${m.to} (x${m.count} lần)`),
+          ...grokSampleSkus.map(s => `[g1-acq] ORIGINAL_SKU ${s.id} (x${s.count} lần)`)
+        ]
+      }, "iPhone-Grok-Sim");
+      sendJson(res, 200, { ok: true });
+    } catch (e) {
+      sendJson(res, 400, { ok: false, error: e.message });
+    }
     return;
   }
 

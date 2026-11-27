@@ -182,6 +182,42 @@ function createG1MappingConfig(store) {
           { match: "exact", from: "g1.ios.100gb.m", to: "g1.ios.20tb.m", enabled: true },
           { match: "exact", from: "g1.ios.100gb.a", to: "g1.ios.30tb.m", enabled: true }
         ]
+      },
+      {
+        id: "grok-ios-legacy-storekit",
+        title: "🤖 12. [GROK iOS · ÉP STOREKIT GỐC] Đổi XPASS sang SuperGrok iOS Gốc (grok.pro.monthly.30 / 300)",
+        description: "【Dành cho app Grok iOS】Đổi các gói XPASS trên WebView Paywall (grok.com/com/paywall/webview) sang 2 mã Apple StoreKit gốc thuộc Group 21630009 (grok.pro.monthly.30 & supergrok.pro.monthly.300) kèm chế độ ép nhánh APPLE_IAP bỏ chữ ký JWS.",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "x.subscription.premium", to: "grok.pro.monthly.30", enabled: true },
+          { match: "exact", from: "x.subscription.plus", to: "grok.pro.monthly.30", enabled: true },
+          { match: "exact", from: "x.subscription.super", to: "grok.pro.monthly.30", enabled: true },
+          { match: "exact", from: "x.subscription.ultra", to: "supergrok.pro.monthly.300", enabled: true }
+        ]
+      },
+      {
+        id: "grok-ios-probe-4tabs-a",
+        title: "🤖 13. [GROK iOS · DÒ 4 TAB GÓI A] Dò 4 Mã Ẩn grok.lite / grok.plus / grok.pro / grok.ultra",
+        description: "【Dành cho app Grok iOS】Gắn 4 mã định danh gói nội bộ (grok.lite, grok.plus, grok.pro, grok.ultra) vào 4 tab Plus / Premium / Super / Ultra trên Paywall Grok iOS để kiểm tra mã nào bật bảng Apple Pay.",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "x.subscription.premium", to: "grok.lite", enabled: true },
+          { match: "exact", from: "x.subscription.plus", to: "grok.plus", enabled: true },
+          { match: "exact", from: "x.subscription.super", to: "grok.pro", enabled: true },
+          { match: "exact", from: "x.subscription.ultra", to: "grok.ultra", enabled: true }
+        ]
+      },
+      {
+        id: "grok-ios-probe-4tabs-b",
+        title: "🤖 14. [GROK iOS · DÒ 4 TAB GÓI B] Dò Các Biến Thể Trial / Promo / Annual Của Grok iOS",
+        description: "【Dành cho app Grok iOS】Gắn 4 mã ứng viên Trial & Annual của SuperGrok vào 4 tab Plus / Premium / Super / Ultra để dò gói dùng thử trên App Store.",
+        replaceAll: true,
+        rules: [
+          { match: "exact", from: "x.subscription.premium", to: "grok.lite.monthly.trial", enabled: true },
+          { match: "exact", from: "x.subscription.plus", to: "grok.pro.monthly.trial", enabled: true },
+          { match: "exact", from: "x.subscription.super", to: "grok.pro.yearly.300", enabled: true },
+          { match: "exact", from: "x.subscription.ultra", to: "supergrok.pro.yearly", enabled: true }
+        ]
       }
     ];
   }
@@ -192,14 +228,16 @@ function createG1MappingConfig(store) {
        (rule.match === "prefix" && rule.from === SOURCE_PREFIX));
   }
 
+  var SKU_NAMESPACE = "(?:g1\\.|com\\.google\\.(?:one|gemini)\\.|x\\.subscription\\.|x-subscription-|grok\\.|supergrok\\.|xpass\\.|sku_|com\\.x\\.|ai\\.x\\.|com\\.atebits\\.|com\\.openai\\.|chatgpt[._]|gpt[._]|com\\.anthropic\\.|claude[._])";
+  var VALID_SKU_RE = new RegExp("^" + SKU_NAMESPACE + "[A-Za-z0-9._-]{0,159}[A-Za-z0-9_-]$(?![\\s\\S])");
+  var VALID_PREFIX_RE = new RegExp("^" + SKU_NAMESPACE + "[A-Za-z0-9._-]{1,159}\\.$(?![\\s\\S])");
+
   function validSku(value) {
-    return typeof value === "string" &&
-      /^(?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]{0,159}[A-Za-z0-9_-]$(?![\s\S])/.test(value);
+    return typeof value === "string" && VALID_SKU_RE.test(value);
   }
 
   function validPrefix(value) {
-    return typeof value === "string" &&
-      /^(?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]{1,159}\.$(?![\s\S])/.test(value);
+    return typeof value === "string" && VALID_PREFIX_RE.test(value);
   }
 
   function hasFields(value, fields, allowExtra) {

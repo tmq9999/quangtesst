@@ -1,5 +1,5 @@
-#!name=G1 ACQ SKU Quản Lý (v7.13.0 + v9.7 PC Live Control + Tiếng Việt)
-#!desc=Bản v7.13.0 + Điều Khiển Trực Tiếp Từ Máy Tính: Mở http://localhost:8787 trên PC để đổi bộ SKU cho iPhone (đồng bộ tức thời qua LAN 192.168.1.71:8787 + GitHub Cloud), bổ sung nguồn g1.ios.ai.2tb.m.ip_3mo_75p.acq và thống kê lượt khớp từng nguồn.
+#!name=G1 & Grok iOS SKU Sniffer (v7.13.0 + PC Live Control + Tiếng Việt)
+#!desc=Bản v7.13.0 Đa Ứng Dụng (Google One + Grok iOS Paywall WKWebView Hook): Mở http://localhost:8787 trên PC để điều khiển và dò SKU ẩn của Google One & Grok iOS theo thời gian thực qua LAN 192.168.1.71:8787 + GitHub Cloud.
 #!system=ios
 
 [Rule]
@@ -9,8 +9,9 @@ IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
 IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
 
 [Script]
-g1-acq = type=http-response,pattern=^https:\/\/one\.google\.com\/,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/g1-acq-discount.js?v=9713
-g1-sku-report = type=http-request,pattern=^https:\/\/one\.google\.com\/g1-sku-report\/?(?:\?.*)?$,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/g1-sku-report-discount.js?v=9713
+g1-acq = type=http-response,pattern=^https:\/\/(?:one\.google\.com|(?:[a-z0-9.-]+\.)?grok\.com|subscriptions\.x\.com)\/,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/g1-acq-discount.js?v=9720
+g1-pc-bridge = type=http-request,pattern=^https:\/\/(?:one\.google\.com|(?:[a-z0-9.-]+\.)?grok\.com|subscriptions\.x\.com)\/__pc_bridge\/telemetry,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/g1-acq-discount.js?v=9720
+g1-sku-report = type=http-request,pattern=^https:\/\/one\.google\.com\/g1-sku-report\/?(?:\?.*)?$,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/tmq9999/quangtesst/main/g1-sku-report-discount.js?v=9720
 
 [MITM]
-hostname = %APPEND% one.google.com
+hostname = %APPEND% one.google.com, grok.com, *.grok.com, subscriptions.x.com

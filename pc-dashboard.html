@@ -1,0 +1,1045 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>G1 ACQ PC Control Center v7.13.0</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --surface: #111827;
+      --surface-2: #1f2937;
+      --border: #374151;
+      --text: #f9fafb;
+      --muted: #9ca3af;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #10b981;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --cyan: #38bdf8;
+      --mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* Top App Navbar */
+    .navbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .navbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .navbar-title {
+      font-size: 20px;
+      font-weight: 800;
+      margin: 0;
+      color: #fff;
+    }
+    .version-tag {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: var(--mono);
+    }
+    .navbar-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .status-pill {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-pill.active {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: var(--success);
+      color: #34d399;
+    }
+    .dot-green {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    /* Main Navigation Tabs */
+    .tab-header {
+      background: #0f172a;
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+    }
+    .tab-link {
+      appearance: none;
+      background: transparent;
+      border: 0;
+      border-bottom: 3px solid transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 15.5px;
+      font-weight: 700;
+      padding: 15px 22px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .tab-link:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .tab-link.active {
+      color: #60a5fa;
+      border-bottom-color: #3b82f6;
+      background: rgba(59, 130, 246, 0.08);
+    }
+    .tab-badge {
+      background: var(--surface-2);
+      color: #e5e7eb;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .tab-link.active .tab-badge {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    /* Main Content Container */
+    .main-container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 24px 28px 48px;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Cards & Sections */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 16px 22px;
+      background: rgba(31, 41, 55, 0.5);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .card-title {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .card-subtitle {
+      font-size: 13.5px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+    .card-body { padding: 20px 22px; }
+    .card-body.no-pad { padding: 0; }
+
+    /* Summary Bar in Log Tab */
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 1024px) { .summary-strip { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .summary-strip { grid-template-columns: 1fr; } }
+    .stat-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+    }
+    .stat-label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .stat-value {
+      font-size: 26px;
+      font-weight: 800;
+      font-family: var(--mono);
+      margin: 6px 0 4px;
+    }
+    .stat-meta {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* Clean Standard Tables */
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+    }
+    table.std-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    table.std-table th {
+      background: #182234;
+      color: #cbd5e1;
+      font-weight: 700;
+      text-align: left;
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    table.std-table td {
+      padding: 14px 18px;
+      border-bottom: 1px solid #1f2937;
+      vertical-align: top;
+    }
+    table.std-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Badges & Mapping Pills */
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: var(--mono);
+    }
+    .badge-success { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); }
+    .badge-warn { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); }
+    .badge-info { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); }
+    .badge-neutral { background: var(--surface-2); color: #d1d5db; border: 1px solid var(--border); }
+
+    .rewrite-item {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 7px 11px;
+      border-radius: 7px;
+      margin-bottom: 6px;
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+    .rewrite-item:last-child { margin-bottom: 0; }
+
+    .sku-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      padding: 4px 9px;
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      margin: 0 6px 6px 0;
+    }
+
+    /* Terminal Console Box */
+    .console-box {
+      background: #050811;
+      color: #d1d5db;
+      font-family: var(--mono);
+      font-size: 13.5px;
+      line-height: 1.75;
+      padding: 18px 22px;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+    .console-line {
+      padding: 3px 0;
+      border-bottom: 1px dashed rgba(55, 65, 81, 0.4);
+      word-break: break-all;
+    }
+    .console-time { color: #6b7280; margin-right: 10px; }
+    .console-rw { color: #34d399; font-weight: 700; }
+    .console-sku { color: #38bdf8; }
+    .console-head { color: #fbbf24; font-weight: 600; }
+
+    /* Preset Grid */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+      gap: 18px;
+    }
+    @media (max-width: 600px) { .preset-grid { grid-template-columns: 1fr; } }
+    .preset-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .preset-card.active {
+      border: 2px solid var(--success);
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.07) 0%, var(--surface) 100%);
+    }
+    .preset-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.4;
+    }
+    .preset-desc {
+      font-size: 13.5px;
+      color: var(--muted);
+      margin: 0;
+    }
+    .preset-rules-box {
+      background: #0b0f19;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      max-height: 170px;
+      overflow-y: auto;
+    }
+    .preset-rule-line {
+      padding: 3px 0;
+      word-break: break-all;
+    }
+
+    /* Buttons & Form Controls */
+    .btn {
+      appearance: none;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.15s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover { background: #059669; }
+    .btn-secondary { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+    .btn-secondary:hover { background: #374151; }
+    .btn-danger { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); }
+    .btn-danger:hover { background: rgba(239, 68, 68, 0.28); }
+    .btn-sm { padding: 6px 12px; font-size: 12.5px; border-radius: 6px; }
+
+    .input-ctrl, .select-ctrl {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #0b0f19;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13.5px;
+    }
+    .input-ctrl:focus, .select-ctrl:focus {
+      outline: 2px solid var(--primary);
+      border-color: transparent;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #065f46;
+      border: 1px solid #10b981;
+      color: #fff;
+      padding: 14px 22px;
+      border-radius: 10px;
+      font-weight: 700;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      display: none;
+      z-index: 9999;
+    }
+    code { font-family: var(--mono); color: var(--cyan); }
+    .muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navbar -->
+  <header class="navbar">
+    <div class="navbar-brand">
+      <h1 class="navbar-title">⚡ G1 ACQ PC Control Center</h1>
+      <span class="version-tag">v7.13.0</span>
+      <span class="muted" id="server-info-text" style="font-size:13px">Đang kết nối...</span>
+    </div>
+    <div class="navbar-status">
+      <div class="status-pill active">
+        <span class="dot-green"></span>
+        <span id="active-config-pill">Đang tải cấu hình...</span>
+      </div>
+      <div class="status-pill" id="git-status-pill">GitHub Cloud: Sẵn sàng</div>
+    </div>
+  </header>
+
+  <!-- Main Tabs Bar -->
+  <nav class="tab-header" id="main-tabs">
+    <button type="button" class="tab-link active" data-tab="presets">
+      ⚡ 1. Chọn Bộ Mẫu Gói (Presets)
+      <span class="tab-badge" id="badge-presets-count">11</span>
+    </button>
+    <button type="button" class="tab-link" data-tab="rules">
+      🛠️ 2. Quản Lý & Sửa Tay Quy Tắc
+      <span class="tab-badge" id="badge-rules-count">0</span>
+    </button>
+    <button type="button" class="tab-link" data-tab="runtime">
+      📡 3. Nhật Ký Bắt Gói · SKU Gốc · Log Runtime
+      <span class="tab-badge" id="badge-runtime-count">0 gói</span>
+    </button>
+  </nav>
+
+  <main class="main-container">
+
+    <!-- ========================================================= -->
+    <!-- TAB 1: CHỌN BỘ MẪU 1 CHẠM (PRESETS)                       -->
+    <!-- ========================================================= -->
+    <section class="tab-content active" id="panel-presets">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Danh Sách Bộ Mẫu Ánh Xạ SKU (Bấm Trên Máy Tính → Tự Động Đổi Cho iPhone)</h2>
+            <div class="card-subtitle">
+              Khi bấm <strong>Áp dụng mẫu này</strong>, máy tính phát cấu hình tức thời qua mạng LAN (<code>0ms</code>) cho iPhone và đồng bộ lên GitHub. Sau khi bấm, chỉ cần mở lại trang gói trên iPhone.
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="preset-grid" id="presets-container"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- TAB 2: QUẢN LÝ & SỬA TAY QUY TẮC (CUSTOM RULES)           -->
+    <!-- ========================================================= -->
+    <section class="tab-content" id="panel-rules">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Bảng Quy Tắc Ánh Xạ SKU Đang Cấu Hình</h2>
+            <div class="card-subtitle">Sửa trực tiếp SKU gốc (From) và SKU đích (To), sau đó bấm <strong>Lưu & Phát Sang iPhone</strong>.</div>
+          </div>
+          <div class="toolbar">
+            <button type="button" class="btn btn-secondary" id="btn-add-rule">+ Thêm dòng quy tắc</button>
+            <button type="button" class="btn btn-success" id="btn-save-rules">💾 Lưu & Phát Sang iPhone</button>
+          </div>
+        </div>
+        <div class="card-body no-pad">
+          <div class="table-responsive">
+            <table class="std-table">
+              <thead>
+                <tr>
+                  <th style="width:170px">Kiểu Khớp</th>
+                  <th>Mã SKU Gốc (From)</th>
+                  <th>Mã SKU Đích (To)</th>
+                  <th style="width:110px">Trạng Thái</th>
+                  <th style="width:90px">Xóa</th>
+                </tr>
+              </thead>
+              <tbody id="rules-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- TAB 3: NHẬT KÝ BẮT GÓI · SKU GỐC · LOG RUNTIME            -->
+    <!-- ========================================================= -->
+    <section class="tab-content" id="panel-runtime">
+
+      <!-- 4 Ô Thông Số Runtime To Rõ -->
+      <div class="summary-strip">
+        <div class="stat-box">
+          <div class="stat-label">Trạng Thái Runtime</div>
+          <div class="stat-value" id="stat-runtime-status" style="color:#34d399">SẴN SÀNG</div>
+          <div class="stat-meta">Phiên bản: <code id="stat-runtime-ver">g1-acq-v7.13-mappings</code></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Thiết Bị & Nguồn Config</div>
+          <div class="stat-value" id="stat-config-source" style="color:#38bdf8">PC-LAN</div>
+          <div class="stat-meta">IP iPhone: <code id="stat-client-ip">--</code> · Lúc: <code id="stat-last-time">--:--:--</code></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Tổng Gói Đã Bắt / Lượt Đè SKU</div>
+          <div class="stat-value"><span id="stat-total-pkts">0</span> gói / <span id="stat-total-hits" style="color:#34d399">0</span> đè</div>
+          <div class="stat-meta">Trong đó nhóm 2TB/Pro: <code id="stat-annual-hits">0</code> lần</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Kho Mã SKU Gốc Đã Thu Thập</div>
+          <div class="stat-value" id="stat-unique-skus" style="color:#fbbf24">0 mã</div>
+          <div class="stat-meta">Revision: <code id="stat-revision">--</code></div>
+        </div>
+      </div>
+
+      <!-- KHỐI 1: BẢNG NHẬT KÝ BẮT GÓI & KẾT QUẢ GHI ĐÈ SKU REALTIME (FULL-WIDTH TABLE) -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">📡 1. Nhật Ký Bắt Gói & Kết Quả Ghi Đè SKU Realtime (Packet Capture)</h2>
+            <div class="card-subtitle">Hiển thị chi tiết từng gói phản hồi từ iPhone gửi về: Thời gian, URL, từng cặp SKU đã ghi đè và SKU gốc phát hiện trong gói.</div>
+          </div>
+          <div class="toolbar">
+            <select id="filter-packet-status" class="select-ctrl" style="width:auto;padding:7px 12px">
+              <option value="all">Tất cả gói tin</option>
+              <option value="rewritten">Chỉ gói có Ghi đè SKU</option>
+              <option value="no-match">Gói không khớp (0 Hit)</option>
+            </select>
+            <input type="text" id="filter-packet-query" class="input-ctrl" placeholder="Lọc theo mã SKU hoặc URL..." style="width:230px;padding:7px 12px">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-simulate-pkt">🧪 Bắn gói test</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-pause-log">⏸ Tạm dừng</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-export-log">📥 Xuất JSON</button>
+            <button type="button" class="btn btn-danger btn-sm" id="btn-clear-log">🗑 Xóa log</button>
+          </div>
+        </div>
+        <div class="card-body no-pad">
+          <div class="table-responsive">
+            <table class="std-table">
+              <thead>
+                <tr>
+                  <th style="width:140px">Thời Gian (VN)</th>
+                  <th style="width:170px">Thiết Bị & Nguồn</th>
+                  <th style="width:280px">Đường Dẫn URL</th>
+                  <th>Kết Quả Ghi Đè SKU (SKU Gốc ━━► SKU Đích ×Số lần)</th>
+                  <th style="width:320px">Mã SKU Gốc Trong Gói</th>
+                </tr>
+              </thead>
+              <tbody id="packets-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- KHỐI 2: BẢNG MÃ SKU GỐC THU THẬP ĐƯỢC (FULL-WIDTH TABLE) -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">📦 2. Danh Sách Toàn Bộ Mã SKU Gốc Thu Thập Được Từ Google (<span id="catalog-count-label">0</span> Mã)</h2>
+            <div class="card-subtitle">Danh sách cộng dồn tất cả mã SKU gốc bắt được từ phản hồi Google One. Bấm <strong>+ Dùng làm SKU gốc</strong> để đưa ngay vào bảng quy tắc.</div>
+          </div>
+        </div>
+        <div class="card-body no-pad">
+          <div class="table-responsive">
+            <table class="std-table">
+              <thead>
+                <tr>
+                  <th>Mã SKU Gốc Đầy Đủ (Original SKU ID)</th>
+                  <th style="width:180px">Tổng Số Lần Xuất Hiện</th>
+                  <th style="width:220px">Lần Thấy Gần Nhất</th>
+                  <th style="width:200px">Thao Tác</th>
+                </tr>
+              </thead>
+              <tbody id="catalog-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- KHỐI 3: MÀN HÌNH CONSOLE LOG RUNTIME TRỰC TIẾP -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">💻 3. Luồng Log Runtime Console Trực Tiếp ([g1-acq] Stream)</h2>
+            <div class="card-subtitle">Toàn bộ dòng log thực thi của script runtime gửi trực tiếp từ iPhone về máy tính.</div>
+          </div>
+        </div>
+        <div class="card-body no-pad">
+          <div class="console-box" id="console-stream-box"></div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function () {
+      var appState = null;
+      var draftRules = null;
+      var logPaused = false;
+
+      function showToast(msg) {
+        var el = document.getElementById("toast");
+        el.textContent = msg;
+        el.style.display = "block";
+        setTimeout(function () { el.style.display = "none"; }, 3200);
+      }
+
+      function escapeHtml(str) {
+        return String(str || "").replace(/[&<>"']/g, function (c) {
+          return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+        });
+      }
+
+      function formatTimeVN(isoStr) {
+        if (!isoStr) return "--:--:--";
+        try {
+          var d = new Date(isoStr);
+          return d.toLocaleTimeString("vi-VN", { hour12: false });
+        } catch (e) {
+          return isoStr;
+        }
+      }
+
+      function switchTab(tabName) {
+        var links = document.querySelectorAll(".tab-link");
+        for (var i = 0; i < links.length; i++) {
+          var isMatch = links[i].getAttribute("data-tab") === tabName;
+          links[i].classList.toggle("active", isMatch);
+        }
+        var panels = ["presets", "rules", "runtime"];
+        for (var j = 0; j < panels.length; j++) {
+          var panel = document.getElementById("panel-" + panels[j]);
+          if (panel) panel.classList.toggle("active", panels[j] === tabName);
+        }
+      }
+
+      function isPresetMatched(preset) {
+        if (!appState || !appState.config || !Array.isArray(appState.config.rules)) return false;
+        var enabledRules = appState.config.rules.filter(function (r) { return r.enabled; });
+        if (enabledRules.length !== preset.rules.length) return false;
+        return preset.rules.every(function (pr) {
+          return enabledRules.some(function (r) {
+            return r.match === pr.match && r.from === pr.from && r.to === pr.to;
+          });
+        });
+      }
+
+      function renderHeader() {
+        if (!appState) return;
+        var rules = (appState.config && appState.config.rules) || [];
+        var enabledCount = rules.filter(function (r) { return r.enabled; }).length;
+        document.getElementById("server-info-text").innerHTML =
+          "LAN iPhone: <code>" + escapeHtml(appState.lanUrl) + "/api/config</code> · Rev: <code>" +
+          escapeHtml(String(appState.config.revision || "").slice(0, 10)) + "</code>";
+        document.getElementById("active-config-pill").textContent =
+          "Đang bật: " + (appState.config.activePresetId || "custom") + " (" + enabledCount + " rule)";
+        document.getElementById("git-status-pill").textContent =
+          (appState.gitSyncStatus && appState.gitSyncStatus.message) || "Đã đồng bộ";
+
+        var totalPkts = (appState.runtimeSummary && appState.runtimeSummary.totalPackets) || 0;
+        var totalSkus = (appState.skuCatalog && appState.skuCatalog.length) || 0;
+        document.getElementById("badge-presets-count").textContent = (appState.presets || []).length + " mẫu";
+        document.getElementById("badge-rules-count").textContent = enabledCount + "/" + rules.length;
+        document.getElementById("badge-runtime-count").textContent = totalPkts + " gói · " + totalSkus + " SKU";
+      }
+
+      function renderPresets() {
+        if (!appState || !Array.isArray(appState.presets)) return;
+        var container = document.getElementById("presets-container");
+        container.innerHTML = appState.presets.map(function (p) {
+          var active = isPresetMatched(p);
+          var rulesHtml = p.rules.map(function (r) {
+            return '<div class="preset-rule-line"><code>' + escapeHtml(r.from) + '</code> <span style="color:#34d399;font-weight:700">━━►</span> <strong style="color:#fff">' + escapeHtml(r.to) + '</strong></div>';
+          }).join("");
+          return '<div class="preset-card ' + (active ? "active" : "") + '">' +
+            '<div class="preset-title">' + escapeHtml(p.title) + '</div>' +
+            '<p class="preset-desc">' + escapeHtml(p.description) + '</p>' +
+            '<div class="preset-rules-box">' + rulesHtml + '</div>' +
+            '<button type="button" class="btn ' + (active ? "btn-success" : "btn-primary") + '" style="margin-top:auto;width:100%" data-action="apply-preset" data-preset-id="' + escapeHtml(p.id) + '">' +
+              (active ? "✓ Đang áp dụng trên iPhone (Bấm để phát lại)" : "⚡ Áp dụng mẫu này cho iPhone") +
+            '</button>' +
+          '</div>';
+        }).join("");
+      }
+
+      function renderRules() {
+        var tbody = document.getElementById("rules-tbody");
+        if (!draftRules || !draftRules.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="muted" style="text-align:center;padding:24px">Chưa có quy tắc nào. Bấm "+ Thêm dòng quy tắc" hoặc chọn 1 bộ mẫu ở Tab 1.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = draftRules.map(function (r, idx) {
+          return '<tr>' +
+            '<td>' +
+              '<select class="select-ctrl" data-rule-field="match" data-index="' + idx + '">' +
+                '<option value="exact"' + (r.match === "exact" ? " selected" : "") + '>Exact (Khớp 1-1)</option>' +
+                '<option value="prefix"' + (r.match === "prefix" ? " selected" : "") + '>Prefix (Tiền tố .)</option>' +
+              '</select>' +
+            '</td>' +
+            '<td><input type="text" class="input-ctrl" data-rule-field="from" data-index="' + idx + '" value="' + escapeHtml(r.from) + '" placeholder="g1.ios.20tb.m.v2"></td>' +
+            '<td><input type="text" class="input-ctrl" data-rule-field="to" data-index="' + idx + '" value="' + escapeHtml(r.to) + '" placeholder="com.google.gemini.2tb.ai.m.3month_ip_99p"></td>' +
+            '<td style="vertical-align:middle">' +
+              '<label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-weight:600">' +
+                '<input type="checkbox" style="width:18px;height:18px" data-rule-field="enabled" data-index="' + idx + '"' + (r.enabled ? " checked" : "") + '> Bật' +
+              '</label>' +
+            '</td>' +
+            '<td style="vertical-align:middle">' +
+              '<button type="button" class="btn btn-danger btn-sm" data-action="remove-rule" data-index="' + idx + '">Xóa</button>' +
+            '</td>' +
+          '</tr>';
+        }).join("");
+      }
+
+      function renderRuntime() {
+        if (!appState) return;
+        var sum = appState.runtimeSummary || {};
+        var statusEl = document.getElementById("stat-runtime-status");
+        var statusMap = {
+          "rewritten": { text: "ĐÃ GHI ĐÈ SKU", color: "#34d399" },
+          "no-match": { text: "KHÔNG KHỚP RULE", color: "#fbbf24" },
+          "scan-only": { text: "QUÉT SKU GỐC", color: "#38bdf8" },
+          "waiting": { text: "ĐANG CHỜ GÓI TIN", color: "#9ca3af" },
+          "cleared": { text: "ĐÃ XÓA LOG", color: "#9ca3af" }
+        };
+        var st = statusMap[sum.runtimeStatus] || { text: String(sum.runtimeStatus || "SẴN SÀNG").toUpperCase(), color: "#34d399" };
+        statusEl.textContent = st.text;
+        statusEl.style.color = st.color;
+
+        document.getElementById("stat-runtime-ver").textContent = sum.version || "g1-acq-v7.13-mappings";
+        document.getElementById("stat-config-source").textContent = String(sum.configSource || "pc-lan").toUpperCase();
+        document.getElementById("stat-client-ip").textContent = sum.lastClientIp || "Chưa kết nối";
+        document.getElementById("stat-last-time").textContent = sum.lastSeenAt ? formatTimeVN(sum.lastSeenAt) : "--:--:--";
+        document.getElementById("stat-total-pkts").textContent = sum.totalPackets || 0;
+        document.getElementById("stat-total-hits").textContent = sum.totalRewrites || 0;
+        document.getElementById("stat-annual-hits").textContent = sum.totalAnnualRewrites || 0;
+
+        var catalog = appState.skuCatalog || [];
+        document.getElementById("stat-unique-skus").textContent = catalog.length + " mã";
+        document.getElementById("catalog-count-label").textContent = catalog.length;
+        document.getElementById("stat-revision").textContent = String((appState.config && appState.config.revision) || "").slice(0, 12);
+
+        // 1. Render Packet Capture Table
+        var packets = appState.telemetry || [];
+        var filterStatus = document.getElementById("filter-packet-status").value;
+        var filterQuery = (document.getElementById("filter-packet-query").value || "").trim().toLowerCase();
+
+        var filteredPkts = packets.filter(function (pkt) {
+          if (filterStatus === "rewritten" && !(pkt.hitCount > 0)) return false;
+          if (filterStatus === "no-match" && pkt.hitCount > 0) return false;
+          if (!filterQuery) return true;
+          return JSON.stringify(pkt).toLowerCase().indexOf(filterQuery) !== -1;
+        });
+
+        var pktTbody = document.getElementById("packets-tbody");
+        if (!filteredPkts.length) {
+          pktTbody.innerHTML = '<tr><td colspan="5" class="muted" style="text-align:center;padding:28px">Chưa có gói tin nào. Hãy mở trang gói Google One trên iPhone hoặc bấm nút "🧪 Bắn gói test".</td></tr>';
+        } else {
+          pktTbody.innerHTML = filteredPkts.map(function (pkt) {
+            var rewritesHtml = (pkt.matchedFrom && pkt.matchedFrom.length)
+              ? pkt.matchedFrom.map(function (m) {
+                  return '<div class="rewrite-item">' +
+                    '<strong>' + escapeHtml(m.id) + '</strong>' +
+                    '<span style="color:#34d399;font-weight:800">━━►</span>' +
+                    '<span style="color:#34d399;font-weight:700">' + escapeHtml(m.to) + '</span>' +
+                    '<span class="badge badge-success" style="margin-left:auto">×' + Number(m.count || 1) + ' lần</span>' +
+                  '</div>';
+                }).join("")
+              : '<span class="badge badge-warn">Không có mã SKU nào khớp quy tắc (0 Hit)</span>';
+
+            var foundHtml = (pkt.foundSkus && pkt.foundSkus.length)
+              ? pkt.foundSkus.map(function (s) {
+                  return '<span class="sku-tag">' +
+                    '<code>' + escapeHtml(s.id) + '</code>' +
+                    '<strong style="color:#38bdf8">×' + Number(s.count || 1) + '</strong>' +
+                    '<button type="button" class="btn btn-primary btn-sm" style="padding:2px 7px;font-size:11px" data-action="use-sku" data-sku="' + escapeHtml(s.id) + '">+ Dùng</button>' +
+                  '</span>';
+                }).join("")
+              : '<span class="muted">Không có</span>';
+
+            return '<tr>' +
+              '<td style="font-family:var(--mono);white-space:nowrap">' +
+                '<strong>' + escapeHtml(formatTimeVN(pkt.at)) + '</strong><br>' +
+                '<span class="muted" style="font-size:12px">' + escapeHtml(String(pkt.at || "").slice(0, 10)) + '</span>' +
+              '</td>' +
+              '<td>' +
+                '<span class="badge badge-info">' + escapeHtml(String(pkt.source || "pc-lan").toUpperCase()) + '</span><br>' +
+                '<span class="muted" style="font-size:12.5px;font-family:var(--mono)">📱 ' + escapeHtml(pkt.clientIp || "iPhone") + '</span>' +
+              '</td>' +
+              '<td style="word-break:break-all;font-family:var(--mono);font-size:12.5px;color:#93c5fd">' +
+                escapeHtml(pkt.url) +
+              '</td>' +
+              '<td>' + rewritesHtml + '</td>' +
+              '<td>' + foundHtml + '</td>' +
+            '</tr>';
+          }).join("");
+        }
+
+        // 2. Render Discovered Original SKU Catalog Table
+        var catTbody = document.getElementById("catalog-tbody");
+        if (!catalog.length) {
+          catTbody.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center;padding:24px">Chưa có mã SKU gốc nào trong kho.</td></tr>';
+        } else {
+          catTbody.innerHTML = catalog.map(function (s) {
+            return '<tr>' +
+              '<td><code style="font-size:14px;font-weight:700">' + escapeHtml(s.id) + '</code></td>' +
+              '<td><span class="badge badge-info">×' + Number(s.count || 0) + ' lần</span></td>' +
+              '<td class="muted" style="font-family:var(--mono)">' + escapeHtml(formatTimeVN(s.lastSeen)) + ' (' + escapeHtml(String(s.lastSeen || "").slice(0, 10)) + ')</td>' +
+              '<td><button type="button" class="btn btn-primary btn-sm" data-action="use-sku" data-sku="' + escapeHtml(s.id) + '">+ Dùng làm SKU gốc</button></td>' +
+            '</tr>';
+          }).join("");
+        }
+
+        // 3. Render Console Log Stream
+        var consoleBox = document.getElementById("console-stream-box");
+        if (!packets.length) {
+          consoleBox.innerHTML = '<div class="muted">Đang chờ gói tin từ iPhone...</div>';
+        } else {
+          var lines = [];
+          packets.slice(0, 30).forEach(function (pkt) {
+            var tStr = formatTimeVN(pkt.at);
+            (pkt.logs || []).forEach(function (line) {
+              var cls = "console-head";
+              if (line.indexOf("REWRITE ") !== -1) cls = "console-rw";
+              else if (line.indexOf("ORIGINAL_SKU ") !== -1 || line.indexOf("SCAN ") !== -1) cls = "console-sku";
+              lines.push('<div class="console-line"><span class="console-time">[' + escapeHtml(tStr) + ']</span><span class="' + cls + '">' + escapeHtml(line) + '</span></div>');
+            });
+          });
+          consoleBox.innerHTML = lines.join("");
+        }
+      }
+
+      async function fetchState(preserveDraft) {
+        if (logPaused && preserveDraft) return;
+        try {
+          var res = await fetch("/api/state");
+          var data = await res.json();
+          appState = data;
+          if (!preserveDraft || !draftRules) {
+            draftRules = JSON.parse(JSON.stringify((data.config && data.config.rules) || []));
+          }
+          renderHeader();
+          renderPresets();
+          if (!preserveDraft) renderRules();
+          renderRuntime();
+        } catch (e) {}
+      }
+
+      async function applyPresetById(presetId) {
+        try {
+          var res = await fetch("/api/preset", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ presetId: presetId })
+          });
+          var data = await res.json();
+          if (data.ok) {
+            showToast("✓ Đã áp dụng mẫu [" + presetId + "] và phát sang iPhone!");
+            await fetchState(false);
+          } else {
+            alert("Lỗi: " + data.error);
+          }
+        } catch (e) {
+          alert("Lỗi kết nối: " + e.message);
+        }
+      }
+
+      async function saveCustomRules() {
+        try {
+          var res = await fetch("/api/rules", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rules: draftRules || [] })
+          });
+          var data = await res.json();
+          if (data.ok) {
+            showToast("✓ Đã lưu quy tắc tùy chỉnh & phát sang iPhone!");
+            await fetchState(false);
+          } else {
+            alert("Lỗi: " + data.error);
+          }
+        } catch (e) {
+          alert("Lỗi kết nối: " + e.message);
+        }
+      }
+
+      // Global Event Delegation for ALL clicks (100% immune to quote escaping bugs)
+      document.addEventListener("click", function (ev) {
+        var tabBtn = ev.target.closest(".tab-link");
+        if (tabBtn) {
+          switchTab(tabBtn.getAttribute("data-tab"));
+          return;
+        }
+
+        var actionBtn = ev.target.closest("[data-action]");
+        if (!actionBtn) return;
+        var action = actionBtn.getAttribute("data-action");
+
+        if (action === "apply-preset") {
+          var presetId = actionBtn.getAttribute("data-preset-id");
+          if (presetId) applyPresetById(presetId);
+          return;
+        }
+
+        if (action === "remove-rule") {
+          var idx = Number(actionBtn.getAttribute("data-index"));
+          if (draftRules && idx >= 0 && idx < draftRules.length) {
+            draftRules.splice(idx, 1);
+            renderRules();
+          }
+          return;
+        }
+
+        if (action === "use-sku") {
+          var skuId = actionBtn.getAttribute("data-sku");
+          if (skuId) {
+            if (!draftRules) draftRules = [];
+            draftRules.push({
+              id: "",
+              match: "exact",
+              from: skuId,
+              to: "com.google.gemini.2tb.ai.m.3month_ip_99p",
+              enabled: true
+            });
+            renderRules();
+            switchTab("rules");
+            showToast("Đã thêm SKU gốc [" + skuId + "] vào bảng quy tắc!");
+          }
+          return;
+        }
+      });
+
+      // Rule table input changes
+      document.addEventListener("input", function (ev) {
+        var el = ev.target;
+        var field = el.getAttribute("data-rule-field");
+        if (!field || !draftRules) return;
+        var idx = Number(el.getAttribute("data-index"));
+        if (!draftRules[idx]) return;
+        if (field === "from" || field === "to") {
+          draftRules[idx][field] = el.value;
+        }
+      });
+
+      document.addEventListener("change", function (ev) {
+        var el = ev.target;
+        var field = el.getAttribute("data-rule-field");
+        if (field && draftRules) {
+          var idx = Number(el.getAttribute("data-index"));
+          if (!draftRules[idx]) return;
+          if (field === "match") draftRules[idx].match = el.value;
+          if (field === "enabled") draftRules[idx].enabled = el.checked;
+          return;
+        }
+        if (el.id === "filter-packet-status") {
+          renderRuntime();
+        }
+      });
+
+      document.getElementById("filter-packet-query").addEventListener("input", function () {
+        renderRuntime();
+      });
+
+      document.getElementById("btn-add-rule").addEventListener("click", function () {
+        if (!draftRules) draftRules = [];
+        draftRules.push({
+          id: "",
+          match: "exact",
+          from: "g1.ios.20tb.m.v2",
+          to: "com.google.gemini.2tb.ai.m.3month_ip_99p",
+          enabled: true
+        });
+        renderRules();
+      });
+
+      document.getElementById("btn-save-rules").addEventListener("click", function () {
+        saveCustomRules();
+      });
+
+      document.getElementById("btn-simulate-pkt").addEventListener("click", async function () {
+        await fetch("/api/telemetry/simulate", { method: "POST" });
+        await fetchState(true);
+        showToast("Đã bắn 1 gói tin test (đầy đủ 7 mã SKU gốc) vào Nhật ký!");
+      });
+
+      document.getElementById("btn-pause-log").addEventListener("click", function () {
+        logPaused = !logPaused;
+        var btn = document.getElementById("btn-pause-log");
+        btn.textContent = logPaused ? "▶ Tiếp tục" : "⏸ Tạm dừng";
+        btn.className = logPaused ? "btn btn-success btn-sm" : "btn btn-secondary btn-sm";
+      });
+
+      document.getElementById("btn-export-log").addEventListener("click", function () {
+        if (!appState) return;
+        var blob = new Blob([JSON.stringify({
+          exportedAt: new Date().toISOString(),
+          runtimeSummary: appState.runtimeSummary,
+          skuCatalog: appState.skuCatalog,
+          telemetry: appState.telemetry
+        }, null, 2)], { type: "application/json" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "g1-acq-realtime-logs.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      document.getElementById("btn-clear-log").addEventListener("click", async function () {
+        await fetch("/api/telemetry/clear", { method: "POST" });
+        await fetchState(true);
+        showToast("Đã xóa toàn bộ nhật ký bắt gói!");
+      });
+
+      fetchState(false);
+      setInterval(function () { fetchState(true); }, 1500);
+    })();
+  </script>
+</body>
+</html>

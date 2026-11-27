@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
-  "revision": "01fc0ddc5aaf486ec6fb36d547859f5bdb442908056db3c0",
-  "updatedAt": "2026-11-26T16:07:17.324Z",
-  "activePresetId": "pro-12months-90p",
+  "revision": "0ee4bd166d563a73190934fc4718b6e26638b49abba60aed",
+  "updatedAt": "2026-11-27T00:02:22.641Z",
+  "activePresetId": "pro-1yuan-20tb",
   "customized": true,
   "rules": [
     {
-      "id": "rule-218f4c5b86ab",
+      "id": "rule-b5b51380fdd8",
       "match": "exact",
-      "from": "g1.ios.2tb.ai.m",
-      "to": "g1.2tb.ai.12months_ip_90p",
+      "from": "g1.ios.20tb.m.v2",
+      "to": "com.google.gemini.2tb.ai.m.3month_ip_99p",
       "enabled": true
     }
   ]

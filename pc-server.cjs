@@ -12,8 +12,48 @@ const LAN_IP = "192.168.1.71";
 const ROOT_DIR = __dirname;
 const REMOTE_CONFIG_PATH = path.join(ROOT_DIR, "remote-config.json");
 const TELEMETRY_CACHE_PATH = path.join(ROOT_DIR, "pc-telemetry-cache.json");
+const UPSTREAM_CACHE_PATH = path.join(ROOT_DIR, "pc-upstream-cache.json");
 const DASHBOARD_HTML_PATH = path.join(ROOT_DIR, "pc-dashboard.html");
 const LIB_CONFIG_PATH = path.join(ROOT_DIR, "lib", "mapping-config.js");
+
+const UPSTREAM_REPOS = [
+  {
+    key: "crhywun",
+    name: "crhywun/g1-acq",
+    repoUrl: "https://github.com/crhywun/g1-acq",
+    gitUrl: "https://github.com/crhywun/g1-acq.git",
+    apiCommitUrl: "https://api.github.com/repos/crhywun/g1-acq/commits/",
+    rawBase: "https://raw.githubusercontent.com/crhywun/g1-acq/",
+    configFile: "lib/mapping-config.js",
+    reportFile: "g1-sku-report.js",
+    runtimeFile: "g1-acq.js"
+  },
+  {
+    key: "dgkncn",
+    name: "Dgkncn/g1-acq-plus",
+    repoUrl: "https://github.com/Dgkncn/g1-acq-plus",
+    gitUrl: "https://github.com/Dgkncn/g1-acq-plus.git",
+    apiCommitUrl: "https://api.github.com/repos/Dgkncn/g1-acq-plus/commits/",
+    rawBase: "https://raw.githubusercontent.com/Dgkncn/g1-acq-plus/",
+    configFile: "g1-acq.js",
+    reportFile: "g1-sku-report.js",
+    runtimeFile: "g1-acq.js",
+    catalogFile: "sku-catalog.json"
+  }
+];
+
+function execAsync(command, timeoutMs = 15000) {
+  return new Promise(resolve => {
+    exec(command, { cwd: ROOT_DIR, timeout: timeoutMs }, (err, stdout, stderr) => {
+      resolve({
+        ok: !err,
+        stdout: String(stdout || ""),
+        stderr: String(stderr || ""),
+        error: err ? err.message : ""
+      });
+    });
+  });
+}
 
 function loadEngine() {
   const code = fs.readFileSync(LIB_CONFIG_PATH, "utf8");
@@ -26,6 +66,14 @@ function randomHex(len) {
   let out = "";
   for (let i = 0; i < len; i++) out += Math.floor(Math.random() * 16).toString(16);
   return out;
+}
+
+function computeRulesSignature(rules) {
+  if (!Array.isArray(rules)) return "";
+  return rules
+    .map(r => `${r.match || "exact"}:${String(r.from || "").trim()}->${String(r.to || "").trim()}`)
+    .sort()
+    .join("|");
 }
 
 function readRemoteConfig() {
@@ -47,6 +95,423 @@ function readRemoteConfig() {
 
 let currentConfig = readRemoteConfig();
 
+// ============================================================================
+// UPSTREAM AUTO-UPDATER STATE & ENGINE
+// ============================================================================
+let upstreamState = {
+  autoCheckEnabled: true,
+  intervalMinutes: 5,
+  autoSyncToSource: true,
+  checking: false,
+  lastCheckedAt: "",
+  lastUpdatedAt: "",
+  statusMessage: "Chưa kiểm tra lần đầu",
+  repos: {
+    crhywun: {
+      name: "crhywun/g1-acq",
+      repoUrl: "https://github.com/crhywun/g1-acq",
+      sha: "",
+      shortSha: "",
+      version: "",
+      collectorVersion: "",
+      commitMessage: "",
+      commitDate: "",
+      presets: [],
+      skus: []
+    },
+    dgkncn: {
+      name: "Dgkncn/g1-acq-plus",
+      repoUrl: "https://github.com/Dgkncn/g1-acq-plus",
+      sha: "",
+      shortSha: "",
+      version: "",
+      collectorVersion: "",
+      commitMessage: "",
+      commitDate: "",
+      presets: [],
+      skus: [],
+      promoCatalogSkus: []
+    }
+  },
+  autoImportedPresets: [],
+  newlyDiscoveredSkus: [],
+  knownSkusMap: {},
+  history: []
+};
+
+function loadUpstreamCache() {
+  try {
+    if (fs.existsSync(UPSTREAM_CACHE_PATH)) {
+      const parsed = JSON.parse(fs.readFileSync(UPSTREAM_CACHE_PATH, "utf8"));
+      if (parsed && typeof parsed === "object") {
+        upstreamState = Object.assign(upstreamState, parsed, { checking: false });
+      }
+    }
+  } catch (e) {}
+}
+
+function saveUpstreamCache() {
+  try {
+    const copy = Object.assign({}, upstreamState, { checking: false });
+    fs.writeFileSync(UPSTREAM_CACHE_PATH, JSON.stringify(copy, null, 2), "utf8");
+  } catch (e) {}
+}
+
+loadUpstreamCache();
+
+function addUpstreamHistory(type, message) {
+  upstreamState.history.unshift({
+    at: new Date().toISOString(),
+    type,
+    message
+  });
+  if (upstreamState.history.length > 60) {
+    upstreamState.history = upstreamState.history.slice(0, 60);
+  }
+}
+
+function getAllPresets() {
+  const localPresets = loadEngine().presets().map(p => Object.assign({}, p, { origin: "local" }));
+  const seenIds = new Set(localPresets.map(p => p.id));
+  const seenSigs = new Set(localPresets.map(p => computeRulesSignature(p.rules)));
+  const merged = localPresets.slice();
+
+  (upstreamState.autoImportedPresets || []).forEach(up => {
+    const sig = computeRulesSignature(up.rules);
+    if (!sig || seenSigs.has(sig)) return;
+    let id = up.id;
+    if (seenIds.has(id)) id = `${up.repoKey}-${up.id}`;
+    seenIds.add(id);
+    seenSigs.add(sig);
+    merged.push({
+      id,
+      title: up.title,
+      description: up.description,
+      replaceAll: true,
+      origin: "upstream",
+      repoName: up.repoName,
+      version: up.version || "",
+      rules: up.rules
+    });
+  });
+
+  return merged;
+}
+
+async function fetchTextWithTimeout(url, timeoutMs = 10000, extraHeaders = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: Object.assign({ "User-Agent": "G1-ACQ-PC-Control-Center/7.13" }, extraHeaders)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+    return await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function resolveLatestCommit(repoDef, prevRepoState) {
+  // 1. Use git ls-remote first (0 GitHub REST API rate-limit cost!)
+  let sha = "";
+  const lsRes = await execAsync(`git ls-remote ${repoDef.gitUrl} refs/heads/main`, 10000);
+  if (lsRes.ok && lsRes.stdout) {
+    const m = lsRes.stdout.trim().match(/^([0-9a-f]{40})\s+/i);
+    if (m) sha = m[1];
+  }
+
+  // 2. Fetch commit metadata via GitHub API only if SHA is new or metadata is missing
+  let commitMessage = (prevRepoState && prevRepoState.sha === sha && prevRepoState.commitMessage) || "";
+  let commitDate = (prevRepoState && prevRepoState.sha === sha && prevRepoState.commitDate) || "";
+
+  if (!sha || !commitMessage) {
+    try {
+      const targetRef = sha || "main";
+      const rawJson = await fetchTextWithTimeout(repoDef.apiCommitUrl + targetRef, 8000, {
+        Accept: "application/vnd.github.v3+json"
+      });
+      const info = JSON.parse(rawJson);
+      if (info && info.sha) {
+        sha = info.sha;
+        commitMessage = (info.commit && info.commit.message ? info.commit.message.split(/\r?\n/)[0] : "");
+        commitDate = (info.commit && info.commit.committer && info.commit.committer.date) || new Date().toISOString();
+      }
+    } catch (e) {
+      if (!commitMessage) commitMessage = "Đã lấy SHA trực tiếp qua Git";
+      if (!commitDate) commitDate = new Date().toISOString();
+    }
+  }
+
+  return { sha, shortSha: sha ? sha.slice(0, 7) : "", commitMessage, commitDate };
+}
+
+function parseCreateG1MappingConfigFromSource(sourceCode) {
+  const start = sourceCode.indexOf("function createG1MappingConfig");
+  if (start === -1) return { presets: [], defaults: [] };
+  const iife = sourceCode.indexOf("(function () {", start);
+  const endMarker = sourceCode.indexOf("// END GENERATED MAPPING CONFIG", start);
+  let end = sourceCode.length;
+  if (endMarker !== -1 && endMarker > start) end = endMarker;
+  else if (iife !== -1 && iife > start) end = iife;
+
+  const fnSlice = sourceCode.slice(start, end);
+  const ctx = {};
+  vm.runInNewContext(fnSlice + "\n;this.__eng = createG1MappingConfig(null);", ctx, { timeout: 1500 });
+  const eng = ctx.__eng;
+  const presets = (eng && typeof eng.presets === "function") ? eng.presets() : [];
+  const defaults = (eng && typeof eng.defaults === "function") ? eng.defaults() : [];
+  return { presets, defaults };
+}
+
+function extractSkusFromText(text) {
+  const set = new Set();
+  const re = /(?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]{1,160}/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const token = m[0].replace(/\.+$/, "");
+    if (/^(?:g1\.|com\.google\.(?:one|gemini)\.)[A-Za-z0-9._-]*[A-Za-z0-9_-]$/.test(token)) {
+      set.add(token);
+    }
+  }
+  return Array.from(set).sort();
+}
+
+function syncNewPresetsAndVersionToDisk(crhywunRepo, newlyFoundPresets) {
+  try {
+    let changedFiles = false;
+    // 1. Update collector & report version strings if crhywun bumped version (e.g. v7.14.0)
+    if (crhywunRepo.version && /^v\d+\.\d+\.\d+$/.test(crhywunRepo.version) &&
+        crhywunRepo.collectorVersion && /^g1-acq-v[\d.]+-mappings$/.test(crhywunRepo.collectorVersion)) {
+      const reportPath = path.join(ROOT_DIR, "g1-sku-report.js");
+      const runtimePath = path.join(ROOT_DIR, "g1-acq.js");
+      const curReport = fs.readFileSync(reportPath, "utf8");
+      const curRuntime = fs.readFileSync(runtimePath, "utf8");
+
+      const nextReport = curReport
+        .replace(/var VERSION = "v\d+\.\d+\.\d+";/, `var VERSION = "${crhywunRepo.version}";`)
+        .replace(/var COLLECTOR_VERSION = "g1-acq-v[\d.]+-mappings";/, `var COLLECTOR_VERSION = "${crhywunRepo.collectorVersion}";`);
+      const nextRuntime = curRuntime
+        .replace(/var VERSION = "g1-acq-v[\d.]+-mappings";/, `var VERSION = "${crhywunRepo.collectorVersion}";`);
+
+      if (nextReport !== curReport) {
+        fs.writeFileSync(reportPath, nextReport, "utf8");
+        changedFiles = true;
+      }
+      if (nextRuntime !== curRuntime) {
+        fs.writeFileSync(runtimePath, nextRuntime, "utf8");
+        changedFiles = true;
+      }
+    }
+
+    // 2. If genuinely new presets arrived on a new commit and autoSyncToSource is enabled, rebuild variants
+    if (changedFiles) {
+      exec("node tools/build-variants.cjs", { cwd: ROOT_DIR }, err => {
+        if (!err) triggerGitPush(true);
+      });
+    }
+    return changedFiles;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function checkUpstreamRepos(forceFetch = false) {
+  if (upstreamState.checking) {
+    return { ok: true, skipped: true, state: upstreamState };
+  }
+  upstreamState.checking = true;
+  upstreamState.statusMessage = "Đang kiểm tra cập nhật từ Repo Gốc...";
+
+  try {
+    const localEng = loadEngine();
+    const localSigs = new Set(localEng.presets().map(p => computeRulesSignature(p.rules)));
+    const isInitialBootstrap = Object.keys(upstreamState.knownSkusMap || {}).length === 0;
+    if (isInitialBootstrap) {
+      // Seed knownSkusMap with current local SKUs so genuinely new upstream SKUs stand out
+      const localRaw = fs.readFileSync(LIB_CONFIG_PATH, "utf8");
+      extractSkusFromText(localRaw).forEach(s => {
+        upstreamState.knownSkusMap[s] = "local-init";
+      });
+    }
+
+    let anyNewCommit = false;
+    const importedList = [];
+    const importedSigSet = new Set();
+    const discoveredThisRun = [];
+
+    for (const repoDef of UPSTREAM_REPOS) {
+      const prev = upstreamState.repos[repoDef.key] || {};
+      const commitInfo = await resolveLatestCommit(repoDef, prev);
+      if (!commitInfo.sha) continue;
+
+      const shaChanged = prev.sha !== commitInfo.sha;
+      const needDownload = forceFetch || shaChanged || !Array.isArray(prev.presets) || prev.presets.length === 0;
+
+      let version = prev.version || "";
+      let collectorVersion = prev.collectorVersion || "";
+      let presets = Array.isArray(prev.presets) ? prev.presets : [];
+      let skus = Array.isArray(prev.skus) ? prev.skus : [];
+      let promoCatalogSkus = Array.isArray(prev.promoCatalogSkus) ? prev.promoCatalogSkus : [];
+
+      if (needDownload) {
+        // Fetch by exact commit SHA to bypass GitHub raw CDN 5-minute cache!
+        const ref = commitInfo.sha;
+        const [cfgText, reportText, runtimeText] = await Promise.all([
+          fetchTextWithTimeout(`${repoDef.rawBase}${ref}/${repoDef.configFile}`),
+          fetchTextWithTimeout(`${repoDef.rawBase}${ref}/${repoDef.reportFile}`).catch(() => ""),
+          repoDef.runtimeFile === repoDef.configFile
+            ? Promise.resolve("")
+            : fetchTextWithTimeout(`${repoDef.rawBase}${ref}/${repoDef.runtimeFile}`).catch(() => "")
+        ]);
+
+        const verMatch = reportText.match(/var\s+VERSION\s*=\s*"([^"]+)"/);
+        if (verMatch) version = verMatch[1];
+        const colMatch = (runtimeText || cfgText).match(/var\s+VERSION\s*=\s*"(g1-acq-[^"]+)"/);
+        if (colMatch) collectorVersion = colMatch[1];
+
+        const parsed = parseCreateG1MappingConfigFromSource(cfgText);
+        presets = (parsed.presets || []).map(p => ({
+          id: String(p.id || ""),
+          title: String(p.title || p.id || ""),
+          description: String(p.description || ""),
+          rules: Array.isArray(p.rules) ? p.rules.map(r => ({
+            match: r.match === "prefix" ? "prefix" : "exact",
+            from: String(r.from || ""),
+            to: String(r.to || ""),
+            enabled: true
+          })) : []
+        }));
+
+        skus = extractSkusFromText(cfgText + "\n" + reportText);
+
+        if (repoDef.catalogFile) {
+          try {
+            const catRaw = await fetchTextWithTimeout(`${repoDef.rawBase}${ref}/${repoDef.catalogFile}`, 12000);
+            const catSkus = extractSkusFromText(catRaw);
+            // Filter high-value promo / AI / Ultra / iOS SKUs from catalog
+            promoCatalogSkus = catSkus.filter(s =>
+              /(?:99p|90p|80p|75p|eft|gemini|ultra|20tb|30tb|subs_variant|g1\.ios\.ai\.)/i.test(s)
+            );
+            skus = Array.from(new Set(skus.concat(promoCatalogSkus))).sort();
+          } catch (e) {}
+        }
+
+        skus.forEach(sku => {
+          if (!upstreamState.knownSkusMap[sku]) {
+            upstreamState.knownSkusMap[sku] = `${repoDef.name}@${commitInfo.shortSha}`;
+            if (!isInitialBootstrap || /(?:99p|ip_3mo|gemini|ultra|eft)/i.test(sku)) {
+              discoveredThisRun.push({
+                id: sku,
+                repoName: repoDef.name,
+                shortSha: commitInfo.shortSha,
+                at: new Date().toISOString()
+              });
+            }
+          }
+        });
+
+        if (shaChanged && prev.sha) {
+          anyNewCommit = true;
+          addUpstreamHistory(
+            "update",
+            `Phát hiện bản cập nhật mới trên ${repoDef.name} (${version || commitInfo.shortSha}): "${commitInfo.commitMessage}"`
+          );
+        }
+      }
+
+      // Collect any upstream presets whose rule-set is distinct from local presets
+      presets.forEach(p => {
+        const sig = computeRulesSignature(p.rules);
+        if (!sig || localSigs.has(sig) || importedSigSet.has(sig)) return;
+        importedSigSet.add(sig);
+        importedList.push({
+          id: `${repoDef.key}-${p.id}`,
+          origId: p.id,
+          repoKey: repoDef.key,
+          repoName: repoDef.name,
+          version: version || commitInfo.shortSha,
+          title: `🔄 [Repo Gốc ${repoDef.key === "crhywun" ? (version || "crhywun") : "Plus " + (version || "")}] ${p.title}`,
+          description: `[Tự động đồng bộ từ ${repoDef.name} · commit ${commitInfo.shortSha}] ${p.description}`,
+          rules: p.rules
+        });
+      });
+
+      upstreamState.repos[repoDef.key] = {
+        name: repoDef.name,
+        repoUrl: repoDef.repoUrl,
+        sha: commitInfo.sha,
+        shortSha: commitInfo.shortSha,
+        version,
+        collectorVersion,
+        commitMessage: commitInfo.commitMessage,
+        commitDate: commitInfo.commitDate,
+        presets,
+        skus: skus.slice(0, 120),
+        totalSkusCount: skus.length,
+        promoCatalogSkus: promoCatalogSkus.slice(0, 80)
+      };
+    }
+
+    upstreamState.autoImportedPresets = importedList;
+    if (discoveredThisRun.length > 0) {
+      const existingIds = new Set((upstreamState.newlyDiscoveredSkus || []).map(x => x.id));
+      const fresh = discoveredThisRun.filter(x => !existingIds.has(x.id));
+      upstreamState.newlyDiscoveredSkus = fresh.concat(upstreamState.newlyDiscoveredSkus || []).slice(0, 80);
+    }
+
+    const nowIso = new Date().toISOString();
+    upstreamState.lastCheckedAt = nowIso;
+    if (anyNewCommit || !upstreamState.lastUpdatedAt) {
+      upstreamState.lastUpdatedAt = nowIso;
+    }
+
+    if (upstreamState.autoSyncToSource && upstreamState.repos.crhywun) {
+      syncNewPresetsAndVersionToDisk(upstreamState.repos.crhywun, importedList);
+    }
+
+    const crVer = upstreamState.repos.crhywun.version || upstreamState.repos.crhywun.shortSha || "--";
+    const dgVer = upstreamState.repos.dgkncn.version || upstreamState.repos.dgkncn.shortSha || "--";
+    upstreamState.statusMessage = anyNewCommit
+      ? `Đã tự động cập nhật bản mới! (crhywun ${crVer} · plus ${dgVer})`
+      : `Đã mới nhất: crhywun ${crVer} (${upstreamState.repos.crhywun.shortSha}) · plus ${dgVer} (${upstreamState.repos.dgkncn.shortSha})`;
+
+    addUpstreamHistory(
+      anyNewCommit ? "update" : "check",
+      `Kiểm tra thành công: crhywun ${crVer} (${upstreamState.repos.crhywun.shortSha}), plus ${dgVer} (${upstreamState.repos.dgkncn.shortSha}) — Đồng bộ ${importedList.length} preset bổ sung vào Web.`
+    );
+
+    saveUpstreamCache();
+    upstreamState.checking = false;
+    return { ok: true, anyNewCommit, importedCount: importedList.length, state: upstreamState };
+  } catch (err) {
+    upstreamState.checking = false;
+    upstreamState.lastCheckedAt = new Date().toISOString();
+    upstreamState.statusMessage = "Lỗi kiểm tra Repo Gốc: " + err.message;
+    addUpstreamHistory("error", "Lỗi khi kết nối Repo Gốc: " + err.message);
+    saveUpstreamCache();
+    return { ok: false, error: err.message, state: upstreamState };
+  }
+}
+
+let autoCheckTimer = null;
+function restartUpstreamSchedule() {
+  if (autoCheckTimer) {
+    clearInterval(autoCheckTimer);
+    autoCheckTimer = null;
+  }
+  if (upstreamState.autoCheckEnabled && upstreamState.intervalMinutes > 0) {
+    const ms = Math.max(1, Number(upstreamState.intervalMinutes)) * 60 * 1000;
+    autoCheckTimer = setInterval(() => {
+      checkUpstreamRepos(false).catch(() => {});
+    }, ms);
+  }
+}
+
+// ============================================================================
+// TELEMETRY & CONFIG ENGINE
+// ============================================================================
 let telemetryLogs = [];
 let cumulativeSkus = Object.create(null);
 let recentScanEvents = [];
@@ -264,13 +729,13 @@ function saveAndSyncConfig(newRules, presetId = "") {
     rules: checked.rules
   };
   fs.writeFileSync(REMOTE_CONFIG_PATH, JSON.stringify(currentConfig, null, 2) + "\n", "utf8");
-  triggerGitPush();
+  triggerGitPush(false);
   return { ok: true, config: currentConfig };
 }
 
 let gitBusy = false;
 let gitPending = false;
-function triggerGitPush() {
+function triggerGitPush(includeAllScripts = false) {
   if (gitBusy) {
     gitPending = true;
     return;
@@ -281,7 +746,10 @@ function triggerGitPush() {
     lastSyncAt: new Date().toISOString(),
     message: "Đang đẩy cấu hình lên GitHub Cloud..."
   };
-  const cmd = 'git add remote-config.json && git commit -m "PC Web UI live config update" && git push origin main';
+  const filesToAdd = includeAllScripts
+    ? "remote-config.json g1-acq.js g1-acq-discount.js g1-sku-report.js g1-sku-report-discount.js quangg11.js"
+    : "remote-config.json";
+  const cmd = `git add ${filesToAdd} && git commit -m "PC Web UI live sync update" && git push origin main`;
   exec(cmd, { cwd: ROOT_DIR }, (err, stdout, stderr) => {
     gitBusy = false;
     if (err && !/nothing to commit/i.test(String(stdout) + String(stderr))) {
@@ -299,7 +767,7 @@ function triggerGitPush() {
     }
     if (gitPending) {
       gitPending = false;
-      triggerGitPush();
+      triggerGitPush(false);
     }
   });
 }
@@ -341,14 +809,26 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === "/api/state" && req.method === "GET") {
-    const eng = loadEngine();
     const skuCatalog = Object.keys(cumulativeSkus)
       .sort()
       .map(id => cumulativeSkus[id]);
     sendJson(res, 200, {
       config: currentConfig,
-      presets: eng.presets(),
+      presets: getAllPresets(),
       gitSyncStatus,
+      upstream: {
+        autoCheckEnabled: upstreamState.autoCheckEnabled,
+        intervalMinutes: upstreamState.intervalMinutes,
+        autoSyncToSource: upstreamState.autoSyncToSource,
+        checking: upstreamState.checking,
+        lastCheckedAt: upstreamState.lastCheckedAt,
+        lastUpdatedAt: upstreamState.lastUpdatedAt,
+        statusMessage: upstreamState.statusMessage,
+        repos: upstreamState.repos,
+        autoImportedCount: (upstreamState.autoImportedPresets || []).length,
+        newlyDiscoveredSkus: (upstreamState.newlyDiscoveredSkus || []).slice(0, 50),
+        history: (upstreamState.history || []).slice(0, 30)
+      },
       runtimeSummary,
       skuCatalog,
       recentScanEvents: recentScanEvents.slice(-20).reverse(),
@@ -359,16 +839,62 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Trigger manual upstream check & sync right now
+  if (pathname === "/api/upstream/check" && req.method === "POST") {
+    try {
+      const bodyRaw = await readBody(req);
+      const body = bodyRaw ? JSON.parse(bodyRaw) : {};
+      const result = await checkUpstreamRepos(Boolean(body.force));
+      sendJson(res, 200, result);
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // Update upstream auto-check settings
+  if (pathname === "/api/upstream/settings" && req.method === "POST") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      if (typeof body.autoCheckEnabled === "boolean") {
+        upstreamState.autoCheckEnabled = body.autoCheckEnabled;
+      }
+      if (typeof body.intervalMinutes === "number" && body.intervalMinutes >= 1 && body.intervalMinutes <= 1440) {
+        upstreamState.intervalMinutes = Math.floor(body.intervalMinutes);
+      }
+      if (typeof body.autoSyncToSource === "boolean") {
+        upstreamState.autoSyncToSource = body.autoSyncToSource;
+      }
+      saveUpstreamCache();
+      restartUpstreamSchedule();
+      sendJson(res, 200, { ok: true });
+    } catch (e) {
+      sendJson(res, 400, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // Apply any preset (local, auto-imported upstream, or direct upstream repo preset)
   if (pathname === "/api/preset" && req.method === "POST") {
     try {
       const body = JSON.parse(await readBody(req));
-      const eng = loadEngine();
-      const preset = eng.presets().find(p => p.id === body.presetId);
+      let preset = getAllPresets().find(p => p.id === body.presetId);
+      // Also support applying directly from Tab 4 Repo Gốc cards via repoKey + origId
+      if (!preset && body.repoKey && body.origId && upstreamState.repos[body.repoKey]) {
+        const upFound = (upstreamState.repos[body.repoKey].presets || []).find(p => p.id === body.origId);
+        if (upFound) {
+          preset = {
+            id: `${body.repoKey}-${upFound.id}`,
+            replaceAll: true,
+            rules: upFound.rules
+          };
+        }
+      }
       if (!preset) {
         sendJson(res, 400, { ok: false, error: "Không tìm thấy mẫu preset: " + body.presetId });
         return;
       }
-      const baseRules = preset.replaceAll ? [] : currentConfig.rules.slice();
+      const baseRules = preset.replaceAll !== false ? [] : currentConfig.rules.slice();
       const mapBySource = new Map();
       baseRules.forEach(r => mapBySource.set(r.match + ":" + r.from, r));
       preset.rules.forEach(r => {
@@ -491,4 +1017,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log("[G1-PC-Server] Running at http://localhost:" + PORT + " and http://" + LAN_IP + ":" + PORT);
+  // Immediately check upstream repos on server startup, then schedule periodic background checks
+  checkUpstreamRepos(false).catch(() => {});
+  restartUpstreamSchedule();
 });

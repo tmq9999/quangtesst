@@ -32,12 +32,12 @@
     .navbar {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 14px 28px;
+      padding: 13px 28px;
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
       position: sticky;
       top: 0;
       z-index: 100;
@@ -46,6 +46,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
+      flex-wrap: wrap;
     }
     .navbar-title {
       font-size: 20px;
@@ -70,7 +71,7 @@
       flex-wrap: wrap;
     }
     .status-pill {
-      padding: 6px 14px;
+      padding: 6px 13px;
       border-radius: 8px;
       font-size: 13px;
       font-weight: 600;
@@ -84,6 +85,11 @@
       background: rgba(16, 185, 129, 0.15);
       border-color: var(--success);
       color: #34d399;
+    }
+    .status-pill.upstream {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: #7dd3fc;
     }
     .dot-green {
       width: 9px;
@@ -99,7 +105,7 @@
       border-bottom: 1px solid var(--border);
       padding: 0 28px;
       display: flex;
-      gap: 8px;
+      gap: 6px;
       overflow-x: auto;
     }
     .tab-link {
@@ -109,13 +115,13 @@
       border-bottom: 3px solid transparent;
       color: var(--muted);
       font: inherit;
-      font-size: 15.5px;
+      font-size: 15px;
       font-weight: 700;
-      padding: 15px 22px;
+      padding: 15px 20px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 10px;
+      gap: 9px;
       white-space: nowrap;
       transition: all 0.15s;
     }
@@ -182,7 +188,7 @@
     .card-body { padding: 20px 22px; }
     .card-body.no-pad { padding: 0; }
 
-    /* Summary Bar in Log Tab */
+    /* Summary Bar */
     .summary-strip {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -205,7 +211,7 @@
       letter-spacing: 0.03em;
     }
     .stat-value {
-      font-size: 26px;
+      font-size: 25px;
       font-weight: 800;
       font-family: var(--mono);
       margin: 6px 0 4px;
@@ -214,6 +220,15 @@
       font-size: 13px;
       color: var(--muted);
     }
+
+    /* Two-column Repo Grid in Upstream Tab */
+    .repo-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 1024px) { .repo-grid { grid-template-columns: 1fr; } }
 
     /* Clean Standard Tables */
     .table-responsive {
@@ -278,7 +293,7 @@
       gap: 6px;
       background: #0f172a;
       border: 1px solid var(--border);
-      padding: 4px 9px;
+      padding: 5px 10px;
       border-radius: 6px;
       font-family: var(--mono);
       font-size: 12.5px;
@@ -321,6 +336,9 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+    }
+    .preset-card.upstream-origin {
+      border-color: rgba(56, 189, 248, 0.45);
     }
     .preset-card.active {
       border: 2px solid var(--success);
@@ -368,6 +386,7 @@
       gap: 8px;
       transition: all 0.15s;
     }
+    .btn:disabled { opacity: 0.55; cursor: wait; }
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-primary:hover { background: var(--primary-hover); }
     .btn-success { background: var(--success); color: #fff; }
@@ -415,6 +434,8 @@
       z-index: 9999;
     }
     code { font-family: var(--mono); color: var(--cyan); }
+    a { color: #60a5fa; text-decoration: none; }
+    a:hover { text-decoration: underline; }
     .muted { color: var(--muted); }
   </style>
 </head>
@@ -424,13 +445,17 @@
   <header class="navbar">
     <div class="navbar-brand">
       <h1 class="navbar-title">⚡ G1 ACQ PC Control Center</h1>
-      <span class="version-tag">v7.13.0</span>
+      <span class="version-tag" id="nav-version-tag">v7.13.0</span>
       <span class="muted" id="server-info-text" style="font-size:13px">Đang kết nối...</span>
     </div>
     <div class="navbar-status">
+      <div class="status-pill upstream" id="upstream-nav-pill">
+        <span id="upstream-nav-text">Repo Gốc: Đang kiểm tra...</span>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" id="btn-nav-check-upstream">🔄 Kiểm tra Repo Gốc</button>
       <div class="status-pill active">
         <span class="dot-green"></span>
-        <span id="active-config-pill">Đang tải cấu hình...</span>
+        <span id="active-config-pill">Đang tải...</span>
       </div>
       <div class="status-pill" id="git-status-pill">GitHub Cloud: Sẵn sàng</div>
     </div>
@@ -450,6 +475,10 @@
       📡 3. Nhật Ký Bắt Gói · SKU Gốc · Log Runtime
       <span class="tab-badge" id="badge-runtime-count">0 gói</span>
     </button>
+    <button type="button" class="tab-link" data-tab="upstream">
+      🔄 4. Tự Động Cập Nhật Repo Gốc
+      <span class="tab-badge" id="badge-upstream-count">Auto</span>
+    </button>
   </nav>
 
   <main class="main-container">
@@ -461,10 +490,17 @@
       <div class="card">
         <div class="card-header">
           <div>
-            <h2 class="card-title">Danh Sách Bộ Mẫu Ánh Xạ SKU (Bấm Trên Máy Tính → Tự Động Đổi Cho iPhone)</h2>
+            <h2 class="card-title">Danh Sách Bộ Mẫu Ánh Xạ SKU (Tự Động Gộp Cả Mẫu Mới Từ Repo Gốc)</h2>
             <div class="card-subtitle">
-              Khi bấm <strong>Áp dụng mẫu này</strong>, máy tính phát cấu hình tức thời qua mạng LAN (<code>0ms</code>) cho iPhone và đồng bộ lên GitHub. Sau khi bấm, chỉ cần mở lại trang gói trên iPhone.
+              Khi bấm <strong>Áp dụng mẫu này</strong>, máy tính phát cấu hình tức thời qua mạng LAN (<code>0ms</code>) cho iPhone và đồng bộ lên GitHub. Mọi mẫu mới phát hiện trên <code>crhywun/g1-acq</code> hoặc <code>Dgkncn/g1-acq-plus</code> sẽ tự động xuất hiện tại đây.
             </div>
+          </div>
+          <div class="toolbar">
+            <select id="filter-preset-origin" class="select-ctrl" style="width:auto;padding:7px 12px">
+              <option value="all">Hiển thị: Tất cả mẫu (Local + Repo Gốc)</option>
+              <option value="local">Chỉ mẫu Việt hóa chính</option>
+              <option value="upstream">Chỉ mẫu tự động đồng bộ từ Repo Gốc</option>
+            </select>
           </div>
         </div>
         <div class="card-body">
@@ -512,7 +548,6 @@
     <!-- ========================================================= -->
     <section class="tab-content" id="panel-runtime">
 
-      <!-- 4 Ô Thông Số Runtime To Rõ -->
       <div class="summary-strip">
         <div class="stat-box">
           <div class="stat-label">Trạng Thái Runtime</div>
@@ -536,7 +571,6 @@
         </div>
       </div>
 
-      <!-- KHỐI 1: BẢNG NHẬT KÝ BẮT GÓI & KẾT QUẢ GHI ĐÈ SKU REALTIME (FULL-WIDTH TABLE) -->
       <div class="card">
         <div class="card-header">
           <div>
@@ -574,7 +608,6 @@
         </div>
       </div>
 
-      <!-- KHỐI 2: BẢNG MÃ SKU GỐC THU THẬP ĐƯỢC (FULL-WIDTH TABLE) -->
       <div class="card">
         <div class="card-header">
           <div>
@@ -599,7 +632,6 @@
         </div>
       </div>
 
-      <!-- KHỐI 3: MÀN HÌNH CONSOLE LOG RUNTIME TRỰC TIẾP -->
       <div class="card">
         <div class="card-header">
           <div>
@@ -614,6 +646,130 @@
 
     </section>
 
+    <!-- ========================================================= -->
+    <!-- TAB 4: TỰ ĐỘNG KIỂM TRA & ĐỒNG BỘ REPO GỐC (AUTO-UPDATE)   -->
+    <!-- ========================================================= -->
+    <section class="tab-content" id="panel-upstream">
+
+      <!-- Cấu Hình & Nút Kiểm Tra Ngay -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">🔄 Tự Động Theo Dõi & Đồng Bộ Repo Gốc (crhywun/g1-acq & Dgkncn/g1-acq-plus)</h2>
+            <div class="card-subtitle" id="upstream-detail-status">
+              Hệ thống tự động kiểm tra commit mới bằng Git/GitHub Raw (không giới hạn rate-limit), tự động trích xuất các Preset và mã SKU mới đưa thẳng vào Web điều khiển.
+            </div>
+          </div>
+          <div class="toolbar">
+            <label style="display:inline-flex;align-items:center;gap:7px;font-weight:600;cursor:pointer">
+              <input type="checkbox" id="chk-auto-upstream" style="width:18px;height:18px" checked> Tự động kiểm tra định kỳ:
+            </label>
+            <select id="sel-upstream-interval" class="select-ctrl" style="width:auto;padding:8px 12px">
+              <option value="2">Mỗi 2 phút</option>
+              <option value="5" selected>Mỗi 5 phút</option>
+              <option value="15">Mỗi 15 phút</option>
+              <option value="30">Mỗi 30 phút</option>
+            </select>
+            <label style="display:inline-flex;align-items:center;gap:7px;font-weight:600;cursor:pointer">
+              <input type="checkbox" id="chk-auto-sync-source" style="width:18px;height:18px" checked> Tự động nâng Version & Push GitHub
+            </label>
+            <button type="button" class="btn btn-primary" id="btn-force-upstream-sync">🔄 Kiểm Tra & Tải Mới Ngay</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2 Cột Trạng Thái Chi Tiết Của 2 Repo Gốc -->
+      <div class="repo-grid">
+        <!-- Repo 1: crhywun/g1-acq -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">📌 Nguồn 1: <a href="https://github.com/crhywun/g1-acq" target="_blank" rel="noopener">crhywun/g1-acq</a></h2>
+              <div class="card-subtitle" id="repo-crhywun-meta">Đang tải thông tin commit...</div>
+            </div>
+            <span class="badge badge-info" id="repo-crhywun-ver">--</span>
+          </div>
+          <div class="card-body no-pad">
+            <div class="table-responsive">
+              <table class="std-table">
+                <thead>
+                  <tr>
+                    <th>Preset Đang Có Trên Repo Gốc</th>
+                    <th>Quy Tắc (From → To)</th>
+                    <th style="width:135px">Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody id="repo-crhywun-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Repo 2: Dgkncn/g1-acq-plus -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">📌 Nguồn 2: <a href="https://github.com/Dgkncn/g1-acq-plus" target="_blank" rel="noopener">Dgkncn/g1-acq-plus</a></h2>
+              <div class="card-subtitle" id="repo-dgkncn-meta">Đang tải thông tin commit...</div>
+            </div>
+            <span class="badge badge-info" id="repo-dgkncn-ver">--</span>
+          </div>
+          <div class="card-body no-pad">
+            <div class="table-responsive">
+              <table class="std-table">
+                <thead>
+                  <tr>
+                    <th>Preset Đang Có Trên Repo Gốc</th>
+                    <th>Quy Tắc (From → To)</th>
+                    <th style="width:135px">Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody id="repo-dgkncn-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Các Mã SKU Khuyến Mãi / Ẩn Trích Xuất Từ Repo Gốc -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">🆕 Mã SKU Khuyến Mãi / 99p / 75p / Free Trial Trích Xuất Từ Repo Gốc</h2>
+            <div class="card-subtitle">Tự động quét từ mã nguồn và <code>sku-catalog.json</code> của Repo Gốc. Bấm <strong>+ Đưa vào Rule (Đích)</strong> hoặc <strong>+ Đưa vào Rule (Gốc)</strong> để test ngay.</div>
+          </div>
+          <div class="toolbar">
+            <input type="text" id="filter-upstream-sku" class="input-ctrl" placeholder="Tìm mã SKU từ repo gốc (vd: 99p, eft, gemini, 20tb)..." style="width:320px;padding:7px 12px">
+          </div>
+        </div>
+        <div class="card-body" id="upstream-skus-box"></div>
+      </div>
+
+      <!-- Nhật Ký Kiểm Tra & Tự Động Đồng Bộ -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">📜 Nhật Ký Tự Động Kiểm Tra & Cập Nhật Repo Gốc</h2>
+          </div>
+        </div>
+        <div class="card-body no-pad">
+          <div class="table-responsive">
+            <table class="std-table">
+              <thead>
+                <tr>
+                  <th style="width:170px">Thời Gian (VN)</th>
+                  <th style="width:140px">Loại</th>
+                  <th>Nội Dung Chi Tiết</th>
+                </tr>
+              </thead>
+              <tbody id="upstream-history-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
   </main>
 
   <div class="toast" id="toast"></div>
@@ -623,12 +779,13 @@
       var appState = null;
       var draftRules = null;
       var logPaused = false;
+      var settingsInitialized = false;
 
       function showToast(msg) {
         var el = document.getElementById("toast");
         el.textContent = msg;
         el.style.display = "block";
-        setTimeout(function () { el.style.display = "none"; }, 3200);
+        setTimeout(function () { el.style.display = "none"; }, 3400);
       }
 
       function escapeHtml(str) {
@@ -653,7 +810,7 @@
           var isMatch = links[i].getAttribute("data-tab") === tabName;
           links[i].classList.toggle("active", isMatch);
         }
-        var panels = ["presets", "rules", "runtime"];
+        var panels = ["presets", "rules", "runtime", "upstream"];
         for (var j = 0; j < panels.length; j++) {
           var panel = document.getElementById("panel-" + panels[j]);
           if (panel) panel.classList.toggle("active", panels[j] === tabName);
@@ -683,22 +840,47 @@
         document.getElementById("git-status-pill").textContent =
           (appState.gitSyncStatus && appState.gitSyncStatus.message) || "Đã đồng bộ";
 
+        var up = appState.upstream || {};
+        var cr = (up.repos && up.repos.crhywun) || {};
+        var dg = (up.repos && up.repos.dgkncn) || {};
+        if (cr.version) {
+          document.getElementById("nav-version-tag").textContent = cr.version;
+        }
+        document.getElementById("upstream-nav-text").textContent = up.checking
+          ? "Repo Gốc: Đang kiểm tra..."
+          : ("Repo Gốc: " + (cr.version || cr.shortSha || "--") + " · Plus " + (dg.version || dg.shortSha || "--"));
+
         var totalPkts = (appState.runtimeSummary && appState.runtimeSummary.totalPackets) || 0;
         var totalSkus = (appState.skuCatalog && appState.skuCatalog.length) || 0;
         document.getElementById("badge-presets-count").textContent = (appState.presets || []).length + " mẫu";
         document.getElementById("badge-rules-count").textContent = enabledCount + "/" + rules.length;
         document.getElementById("badge-runtime-count").textContent = totalPkts + " gói · " + totalSkus + " SKU";
+        document.getElementById("badge-upstream-count").textContent =
+          (up.autoImportedCount ? "+" + up.autoImportedCount + " mới" : (cr.version || "Auto"));
       }
 
       function renderPresets() {
         if (!appState || !Array.isArray(appState.presets)) return;
+        var originFilter = document.getElementById("filter-preset-origin").value;
+        var list = appState.presets.filter(function (p) {
+          if (originFilter === "local") return p.origin !== "upstream";
+          if (originFilter === "upstream") return p.origin === "upstream";
+          return true;
+        });
+
         var container = document.getElementById("presets-container");
-        container.innerHTML = appState.presets.map(function (p) {
+        if (!list.length) {
+          container.innerHTML = '<div class="muted" style="padding:20px">Không có mẫu nào trong bộ lọc này.</div>';
+          return;
+        }
+        container.innerHTML = list.map(function (p) {
           var active = isPresetMatched(p);
+          var isUp = p.origin === "upstream";
           var rulesHtml = p.rules.map(function (r) {
-            return '<div class="preset-rule-line"><code>' + escapeHtml(r.from) + '</code> <span style="color:#34d399;font-weight:700">━━►</span> <strong style="color:#fff">' + escapeHtml(r.to) + '</strong></div>';
+            var matchPrefix = r.match === "prefix" ? '<span class="badge badge-warn" style="margin-right:6px;padding:1px 6px;font-size:11px">PREFIX</span>' : "";
+            return '<div class="preset-rule-line">' + matchPrefix + '<code>' + escapeHtml(r.from) + '</code> <span style="color:#34d399;font-weight:700">━━►</span> <strong style="color:#fff">' + escapeHtml(r.to) + '</strong></div>';
           }).join("");
-          return '<div class="preset-card ' + (active ? "active" : "") + '">' +
+          return '<div class="preset-card ' + (active ? "active " : "") + (isUp ? "upstream-origin" : "") + '">' +
             '<div class="preset-title">' + escapeHtml(p.title) + '</div>' +
             '<p class="preset-desc">' + escapeHtml(p.description) + '</p>' +
             '<div class="preset-rules-box">' + rulesHtml + '</div>' +
@@ -765,7 +947,6 @@
         document.getElementById("catalog-count-label").textContent = catalog.length;
         document.getElementById("stat-revision").textContent = String((appState.config && appState.config.revision) || "").slice(0, 12);
 
-        // 1. Render Packet Capture Table
         var packets = appState.telemetry || [];
         var filterStatus = document.getElementById("filter-packet-status").value;
         var filterQuery = (document.getElementById("filter-packet-query").value || "").trim().toLowerCase();
@@ -821,7 +1002,6 @@
           }).join("");
         }
 
-        // 2. Render Discovered Original SKU Catalog Table
         var catTbody = document.getElementById("catalog-tbody");
         if (!catalog.length) {
           catTbody.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center;padding:24px">Chưa có mã SKU gốc nào trong kho.</td></tr>';
@@ -836,7 +1016,6 @@
           }).join("");
         }
 
-        // 3. Render Console Log Stream
         var consoleBox = document.getElementById("console-stream-box");
         if (!packets.length) {
           consoleBox.innerHTML = '<div class="muted">Đang chờ gói tin từ iPhone...</div>';
@@ -855,6 +1034,129 @@
         }
       }
 
+      function renderRepoTable(repoKey, repoObj, tbodyId, metaId, verId) {
+        var metaEl = document.getElementById(metaId);
+        var verEl = document.getElementById(verId);
+        var tbody = document.getElementById(tbodyId);
+        if (!repoObj || !repoObj.sha) {
+          metaEl.textContent = "Đang kết nối lấy thông tin commit mới nhất...";
+          verEl.textContent = "--";
+          tbody.innerHTML = '<tr><td colspan="3" class="muted" style="text-align:center;padding:20px">Đang tải...</td></tr>';
+          return;
+        }
+        verEl.textContent = (repoObj.version || "main") + " · " + repoObj.shortSha;
+        metaEl.innerHTML =
+          'Commit mới nhất: <code>' + escapeHtml(repoObj.shortSha) + '</code> — <strong>' +
+          escapeHtml(repoObj.commitMessage) + '</strong> (' + escapeHtml(String(repoObj.commitDate || "").slice(0, 10)) + ')';
+
+        var presets = repoObj.presets || [];
+        if (!presets.length) {
+          tbody.innerHTML = '<tr><td colspan="3" class="muted" style="text-align:center;padding:20px">Không có preset nào.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = presets.map(function (p) {
+          var active = isPresetMatched(p);
+          var rulesHtml = (p.rules || []).slice(0, 4).map(function (r) {
+            return '<div style="font-family:var(--mono);font-size:12px;margin-bottom:3px">' +
+              (r.match === "prefix" ? '<span class="badge badge-warn" style="padding:1px 5px;font-size:10px;margin-right:4px">PREFIX</span>' : '') +
+              '<code>' + escapeHtml(r.from) + '</code> → <strong style="color:#34d399">' + escapeHtml(r.to) + '</strong></div>';
+          }).join("");
+          if ((p.rules || []).length > 4) {
+            rulesHtml += '<div class="muted" style="font-size:12px">... và ' + (p.rules.length - 4) + ' quy tắc nữa</div>';
+          }
+          return '<tr>' +
+            '<td><strong>' + escapeHtml(p.title) + '</strong><div class="muted" style="font-size:12.5px;margin-top:3px">' + escapeHtml(p.description) + '</div></td>' +
+            '<td>' + rulesHtml + '</td>' +
+            '<td style="vertical-align:middle">' +
+              '<button type="button" class="btn ' + (active ? "btn-success" : "btn-primary") + ' btn-sm" data-action="apply-repo-preset" data-repo-key="' + escapeHtml(repoKey) + '" data-orig-id="' + escapeHtml(p.id) + '">' +
+                (active ? "✓ Đang bật" : "⚡ Áp dụng") +
+              '</button>' +
+            '</td>' +
+          '</tr>';
+        }).join("");
+      }
+
+      function renderUpstream() {
+        if (!appState || !appState.upstream) return;
+        var up = appState.upstream;
+
+        if (!settingsInitialized) {
+          document.getElementById("chk-auto-upstream").checked = up.autoCheckEnabled !== false;
+          document.getElementById("chk-auto-sync-source").checked = up.autoSyncToSource !== false;
+          var sel = document.getElementById("sel-upstream-interval");
+          if ([2, 5, 15, 30].indexOf(Number(up.intervalMinutes)) !== -1) {
+            sel.value = String(up.intervalMinutes);
+          }
+          settingsInitialized = true;
+        }
+
+        var btnForce = document.getElementById("btn-force-upstream-sync");
+        var btnNav = document.getElementById("btn-nav-check-upstream");
+        btnForce.disabled = Boolean(up.checking);
+        btnNav.disabled = Boolean(up.checking);
+        btnForce.textContent = up.checking ? "⏳ Đang kiểm tra Repo Gốc..." : "🔄 Kiểm Tra & Tải Mới Ngay";
+
+        document.getElementById("upstream-detail-status").innerHTML =
+          'Trạng thái: <strong style="color:#34d399">' + escapeHtml(up.statusMessage || "") + '</strong> · ' +
+          'Lần kiểm tra cuối: <code>' + escapeHtml(formatTimeVN(up.lastCheckedAt)) + '</code> · ' +
+          'Preset bổ sung đã gộp vào Tab 1: <code>' + Number(up.autoImportedCount || 0) + ' mẫu</code>';
+
+        renderRepoTable("crhywun", up.repos && up.repos.crhywun, "repo-crhywun-tbody", "repo-crhywun-meta", "repo-crhywun-ver");
+        renderRepoTable("dgkncn", up.repos && up.repos.dgkncn, "repo-dgkncn-tbody", "repo-dgkncn-meta", "repo-dgkncn-ver");
+
+        // Render Extracted Promo SKUs from both repos
+        var allRepoSkus = [];
+        var seenSku = Object.create(null);
+        ["crhywun", "dgkncn"].forEach(function (k) {
+          var r = up.repos && up.repos[k];
+          if (!r) return;
+          var list = (r.promoCatalogSkus && r.promoCatalogSkus.length) ? r.promoCatalogSkus : (r.skus || []);
+          (r.skus || []).concat(list).forEach(function (s) {
+            if (!seenSku[s]) {
+              seenSku[s] = k === "crhywun" ? "crhywun" : "plus";
+              allRepoSkus.push({ id: s, source: seenSku[s] });
+            }
+          });
+        });
+
+        var q = (document.getElementById("filter-upstream-sku").value || "").trim().toLowerCase();
+        var filteredSkus = allRepoSkus.filter(function (item) {
+          return !q || item.id.toLowerCase().indexOf(q) !== -1;
+        }).slice(0, 80);
+
+        var skusBox = document.getElementById("upstream-skus-box");
+        if (!filteredSkus.length) {
+          skusBox.innerHTML = '<div class="muted">Không tìm thấy mã SKU nào khớp từ khóa.</div>';
+        } else {
+          skusBox.innerHTML = filteredSkus.map(function (item) {
+            return '<span class="sku-tag">' +
+              '<code>' + escapeHtml(item.id) + '</code>' +
+              '<span class="badge badge-neutral" style="padding:1px 6px;font-size:10.5px">' + escapeHtml(item.source) + '</span>' +
+              '<button type="button" class="btn btn-success btn-sm" style="padding:2px 7px;font-size:11px" data-action="use-sku-target" data-sku="' + escapeHtml(item.id) + '">+ Làm Đích</button>' +
+              '<button type="button" class="btn btn-secondary btn-sm" style="padding:2px 7px;font-size:11px" data-action="use-sku" data-sku="' + escapeHtml(item.id) + '">+ Làm Gốc</button>' +
+            '</span>';
+          }).join("");
+        }
+
+        // Render Upstream History
+        var histTbody = document.getElementById("upstream-history-tbody");
+        var hist = up.history || [];
+        if (!hist.length) {
+          histTbody.innerHTML = '<tr><td colspan="3" class="muted" style="text-align:center;padding:20px">Chưa có lịch sử kiểm tra.</td></tr>';
+        } else {
+          histTbody.innerHTML = hist.map(function (h) {
+            var badge = h.type === "update"
+              ? '<span class="badge badge-success">CÓ CẬP NHẬT MỚI</span>'
+              : (h.type === "error" ? '<span class="badge badge-warn">LỖI KẾT NỐI</span>' : '<span class="badge badge-info">KIỂM TRA ĐỊNH KỲ</span>');
+            return '<tr>' +
+              '<td style="font-family:var(--mono)">' + escapeHtml(formatTimeVN(h.at)) + '</td>' +
+              '<td>' + badge + '</td>' +
+              '<td>' + escapeHtml(h.message) + '</td>' +
+            '</tr>';
+          }).join("");
+        }
+      }
+
       async function fetchState(preserveDraft) {
         if (logPaused && preserveDraft) return;
         try {
@@ -868,19 +1170,56 @@
           renderPresets();
           if (!preserveDraft) renderRules();
           renderRuntime();
+          renderUpstream();
         } catch (e) {}
       }
 
-      async function applyPresetById(presetId) {
+      async function triggerUpstreamCheck(force) {
+        showToast("🔄 Đang kết nối kiểm tra 2 Repo Gốc...");
+        try {
+          var res = await fetch("/api/upstream/check", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ force: Boolean(force) })
+          });
+          var data = await res.json();
+          await fetchState(true);
+          if (data.ok) {
+            showToast(data.anyNewCommit
+              ? "🎉 Phát hiện bản cập nhật mới từ Repo Gốc & đã nạp vào Web!"
+              : "✓ Đã kiểm tra Repo Gốc: Đang ở bản mới nhất!");
+          } else {
+            alert("Lỗi kiểm tra Repo Gốc: " + data.error);
+          }
+        } catch (e) {
+          alert("Lỗi kết nối: " + e.message);
+        }
+      }
+
+      async function saveUpstreamSettings() {
+        var payload = {
+          autoCheckEnabled: document.getElementById("chk-auto-upstream").checked,
+          intervalMinutes: Number(document.getElementById("sel-upstream-interval").value),
+          autoSyncToSource: document.getElementById("chk-auto-sync-source").checked
+        };
+        await fetch("/api/upstream/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        showToast("Đã lưu cài đặt tự động cập nhật Repo Gốc!");
+      }
+
+      async function applyPresetPayload(payload, label) {
         try {
           var res = await fetch("/api/preset", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ presetId: presetId })
+            body: JSON.stringify(payload)
           });
           var data = await res.json();
           if (data.ok) {
-            showToast("✓ Đã áp dụng mẫu [" + presetId + "] và phát sang iPhone!");
+            showToast("✓ Đã áp dụng mẫu [" + label + "] và phát sang iPhone!");
             await fetchState(false);
           } else {
             alert("Lỗi: " + data.error);
@@ -909,7 +1248,7 @@
         }
       }
 
-      // Global Event Delegation for ALL clicks (100% immune to quote escaping bugs)
+      // Global Event Delegation
       document.addEventListener("click", function (ev) {
         var tabBtn = ev.target.closest(".tab-link");
         if (tabBtn) {
@@ -923,7 +1262,16 @@
 
         if (action === "apply-preset") {
           var presetId = actionBtn.getAttribute("data-preset-id");
-          if (presetId) applyPresetById(presetId);
+          if (presetId) applyPresetPayload({ presetId: presetId }, presetId);
+          return;
+        }
+
+        if (action === "apply-repo-preset") {
+          var repoKey = actionBtn.getAttribute("data-repo-key");
+          var origId = actionBtn.getAttribute("data-orig-id");
+          if (repoKey && origId) {
+            applyPresetPayload({ repoKey: repoKey, origId: origId }, repoKey + ":" + origId);
+          }
           return;
         }
 
@@ -953,18 +1301,37 @@
           }
           return;
         }
+
+        if (action === "use-sku-target") {
+          var targetSku = actionBtn.getAttribute("data-sku");
+          if (targetSku) {
+            if (!draftRules) draftRules = [];
+            draftRules.push({
+              id: "",
+              match: "exact",
+              from: "g1.ios.20tb.m.v2",
+              to: targetSku,
+              enabled: true
+            });
+            renderRules();
+            switchTab("rules");
+            showToast("Đã thêm SKU đích [" + targetSku + "] gắn vào nút Ultra 20TB!");
+          }
+          return;
+        }
       });
 
-      // Rule table input changes
       document.addEventListener("input", function (ev) {
         var el = ev.target;
         var field = el.getAttribute("data-rule-field");
-        if (!field || !draftRules) return;
-        var idx = Number(el.getAttribute("data-index"));
-        if (!draftRules[idx]) return;
-        if (field === "from" || field === "to") {
-          draftRules[idx][field] = el.value;
+        if (field && draftRules) {
+          var idx = Number(el.getAttribute("data-index"));
+          if (!draftRules[idx]) return;
+          if (field === "from" || field === "to") draftRules[idx][field] = el.value;
+          return;
         }
+        if (el.id === "filter-packet-query") renderRuntime();
+        if (el.id === "filter-upstream-sku") renderUpstream();
       });
 
       document.addEventListener("change", function (ev) {
@@ -977,13 +1344,11 @@
           if (field === "enabled") draftRules[idx].enabled = el.checked;
           return;
         }
-        if (el.id === "filter-packet-status") {
-          renderRuntime();
+        if (el.id === "filter-packet-status") renderRuntime();
+        if (el.id === "filter-preset-origin") renderPresets();
+        if (el.id === "chk-auto-upstream" || el.id === "sel-upstream-interval" || el.id === "chk-auto-sync-source") {
+          saveUpstreamSettings();
         }
-      });
-
-      document.getElementById("filter-packet-query").addEventListener("input", function () {
-        renderRuntime();
       });
 
       document.getElementById("btn-add-rule").addEventListener("click", function () {
@@ -1000,6 +1365,15 @@
 
       document.getElementById("btn-save-rules").addEventListener("click", function () {
         saveCustomRules();
+      });
+
+      document.getElementById("btn-nav-check-upstream").addEventListener("click", function () {
+        switchTab("upstream");
+        triggerUpstreamCheck(true);
+      });
+
+      document.getElementById("btn-force-upstream-sync").addEventListener("click", function () {
+        triggerUpstreamCheck(true);
       });
 
       document.getElementById("btn-simulate-pkt").addEventListener("click", async function () {

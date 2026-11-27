@@ -99,6 +99,20 @@
       box-shadow: 0 0 8px var(--success);
     }
 
+    /* Quick Connect LAN Banner */
+    .connect-banner {
+      background: linear-gradient(90deg, rgba(37, 99, 235, 0.14) 0%, rgba(16, 185, 129, 0.1) 100%);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      border-radius: 12px;
+      padding: 14px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+    }
+
     /* Main Navigation Tabs */
     .tab-header {
       background: #0f172a;
@@ -221,7 +235,6 @@
       color: var(--muted);
     }
 
-    /* Two-column Repo Grid in Upstream Tab */
     .repo-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -384,15 +397,16 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
+      text-decoration: none;
       transition: all 0.15s;
     }
     .btn:disabled { opacity: 0.55; cursor: wait; }
     .btn-primary { background: var(--primary); color: #fff; }
-    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:hover { background: var(--primary-hover); text-decoration: none; }
     .btn-success { background: var(--success); color: #fff; }
-    .btn-success:hover { background: #059669; }
+    .btn-success:hover { background: #059669; text-decoration: none; }
     .btn-secondary { background: var(--surface-2); color: var(--text); border-color: var(--border); }
-    .btn-secondary:hover { background: #374151; }
+    .btn-secondary:hover { background: #374151; text-decoration: none; }
     .btn-danger { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); }
     .btn-danger:hover { background: rgba(239, 68, 68, 0.28); }
     .btn-sm { padding: 6px 12px; font-size: 12.5px; border-radius: 6px; }
@@ -418,7 +432,6 @@
       align-items: center;
     }
 
-    /* Toast Notification */
     .toast {
       position: fixed;
       bottom: 24px;
@@ -446,7 +459,7 @@
     <div class="navbar-brand">
       <h1 class="navbar-title">⚡ G1 ACQ PC Control Center</h1>
       <span class="version-tag" id="nav-version-tag">v7.13.0</span>
-      <span class="muted" id="server-info-text" style="font-size:13px">Đang kết nối...</span>
+      <a href="/guide" target="_blank" class="btn btn-secondary btn-sm">📖 Hướng Dẫn Sử Dụng A-Z</a>
     </div>
     <div class="navbar-status">
       <div class="status-pill upstream" id="upstream-nav-pill">
@@ -457,7 +470,7 @@
         <span class="dot-green"></span>
         <span id="active-config-pill">Đang tải...</span>
       </div>
-      <div class="status-pill" id="git-status-pill">GitHub Cloud: Sẵn sàng</div>
+      <div class="status-pill" id="git-status-pill">LAN Trực Tiếp: Sẵn sàng</div>
     </div>
   </header>
 
@@ -483,6 +496,23 @@
 
   <main class="main-container">
 
+    <!-- Thanh Kết Nối Nhanh Cho iPhone (Tự Nhận IP LAN Của Mọi Máy Tính) -->
+    <div class="connect-banner">
+      <div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:3px">
+          📲 Link Cài Module Shadowrocket Cho iPhone (Tự Nhận IP Mạng LAN Máy Tính Này):
+          <code id="live-module-url-text" style="font-size:14px;background:#0b0f19;padding:3px 8px;border-radius:6px;margin-left:4px">http://...</code>
+        </div>
+        <div class="muted" style="font-size:13px">
+          Dán link trên vào <strong>Shadowrocket → Tab Mô-đun (Module) → Thêm Mô-đun</strong> trên iPhone chung Wi-Fi (hoặc dùng trên máy mới mà không cần cấu hình GitHub!).
+        </div>
+      </div>
+      <div class="toolbar">
+        <select id="sel-lan-ip" class="select-ctrl" style="width:auto;padding:6px 10px;font-size:12.5px" title="Chọn địa chỉ IP LAN của máy tính"></select>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-copy-module-url">📋 Copy Link Module LAN</button>
+      </div>
+    </div>
+
     <!-- ========================================================= -->
     <!-- TAB 1: CHỌN BỘ MẪU 1 CHẠM (PRESETS)                       -->
     <!-- ========================================================= -->
@@ -492,7 +522,7 @@
           <div>
             <h2 class="card-title">Danh Sách Bộ Mẫu Ánh Xạ SKU (Tự Động Gộp Cả Mẫu Mới Từ Repo Gốc)</h2>
             <div class="card-subtitle">
-              Khi bấm <strong>Áp dụng mẫu này</strong>, máy tính phát cấu hình tức thời qua mạng LAN (<code>0ms</code>) cho iPhone và đồng bộ lên GitHub. Mọi mẫu mới phát hiện trên <code>crhywun/g1-acq</code> hoặc <code>Dgkncn/g1-acq-plus</code> sẽ tự động xuất hiện tại đây.
+              Khi bấm <strong>Áp dụng mẫu này</strong>, máy tính phát cấu hình tức thời qua mạng LAN (<code>0ms</code>) cho iPhone. Sau khi bấm, chỉ cần mở lại trang gói trên iPhone.
             </div>
           </div>
           <div class="toolbar">
@@ -651,13 +681,12 @@
     <!-- ========================================================= -->
     <section class="tab-content" id="panel-upstream">
 
-      <!-- Cấu Hình & Nút Kiểm Tra Ngay -->
       <div class="card">
         <div class="card-header">
           <div>
             <h2 class="card-title">🔄 Tự Động Theo Dõi & Đồng Bộ Repo Gốc (crhywun/g1-acq & Dgkncn/g1-acq-plus)</h2>
             <div class="card-subtitle" id="upstream-detail-status">
-              Hệ thống tự động kiểm tra commit mới bằng Git/GitHub Raw (không giới hạn rate-limit), tự động trích xuất các Preset và mã SKU mới đưa thẳng vào Web điều khiển.
+              Hệ thống tự động kiểm tra commit mới qua GitHub Atom / Raw (không cần cài Git, không giới hạn rate-limit), tự động trích xuất các Preset và mã SKU mới đưa thẳng vào Web điều khiển.
             </div>
           </div>
           <div class="toolbar">
@@ -671,16 +700,14 @@
               <option value="30">Mỗi 30 phút</option>
             </select>
             <label style="display:inline-flex;align-items:center;gap:7px;font-weight:600;cursor:pointer">
-              <input type="checkbox" id="chk-auto-sync-source" style="width:18px;height:18px" checked> Tự động nâng Version & Push GitHub
+              <input type="checkbox" id="chk-auto-sync-source" style="width:18px;height:18px" checked> Tự động nâng Version file local
             </label>
             <button type="button" class="btn btn-primary" id="btn-force-upstream-sync">🔄 Kiểm Tra & Tải Mới Ngay</button>
           </div>
         </div>
       </div>
 
-      <!-- 2 Cột Trạng Thái Chi Tiết Của 2 Repo Gốc -->
       <div class="repo-grid">
-        <!-- Repo 1: crhywun/g1-acq -->
         <div class="card" style="margin-bottom:0">
           <div class="card-header">
             <div>
@@ -705,7 +732,6 @@
           </div>
         </div>
 
-        <!-- Repo 2: Dgkncn/g1-acq-plus -->
         <div class="card" style="margin-bottom:0">
           <div class="card-header">
             <div>
@@ -731,12 +757,11 @@
         </div>
       </div>
 
-      <!-- Các Mã SKU Khuyến Mãi / Ẩn Trích Xuất Từ Repo Gốc -->
       <div class="card">
         <div class="card-header">
           <div>
             <h2 class="card-title">🆕 Mã SKU Khuyến Mãi / 99p / 75p / Free Trial Trích Xuất Từ Repo Gốc</h2>
-            <div class="card-subtitle">Tự động quét từ mã nguồn và <code>sku-catalog.json</code> của Repo Gốc. Bấm <strong>+ Đưa vào Rule (Đích)</strong> hoặc <strong>+ Đưa vào Rule (Gốc)</strong> để test ngay.</div>
+            <div class="card-subtitle">Tự động quét từ mã nguồn và <code>sku-catalog.json</code> của Repo Gốc. Bấm <strong>+ Làm Đích</strong> hoặc <strong>+ Làm Gốc</strong> để test ngay.</div>
           </div>
           <div class="toolbar">
             <input type="text" id="filter-upstream-sku" class="input-ctrl" placeholder="Tìm mã SKU từ repo gốc (vd: 99p, eft, gemini, 20tb)..." style="width:320px;padding:7px 12px">
@@ -745,7 +770,6 @@
         <div class="card-body" id="upstream-skus-box"></div>
       </div>
 
-      <!-- Nhật Ký Kiểm Tra & Tự Động Đồng Bộ -->
       <div class="card">
         <div class="card-header">
           <div>
@@ -832,9 +856,19 @@
         if (!appState) return;
         var rules = (appState.config && appState.config.rules) || [];
         var enabledCount = rules.filter(function (r) { return r.enabled; }).length;
-        document.getElementById("server-info-text").innerHTML =
-          "LAN iPhone: <code>" + escapeHtml(appState.lanUrl) + "/api/config</code> · Rev: <code>" +
-          escapeHtml(String(appState.config.revision || "").slice(0, 10)) + "</code>";
+
+        document.getElementById("live-module-url-text").textContent = appState.liveModuleUrl || "";
+
+        var lanSel = document.getElementById("sel-lan-ip");
+        var candidates = appState.lanCandidates || [];
+        if (lanSel && candidates.length) {
+          var curHtml = candidates.map(function (c) {
+            var sel = c.address === appState.selectedLanIp ? " selected" : "";
+            return '<option value="' + escapeHtml(c.address) + '"' + sel + '>' + escapeHtml(c.name + " (" + c.address + ")") + '</option>';
+          }).join("");
+          if (lanSel.innerHTML !== curHtml) lanSel.innerHTML = curHtml;
+        }
+
         document.getElementById("active-config-pill").textContent =
           "Đang bật: " + (appState.config.activePresetId || "custom") + " (" + enabledCount + " rule)";
         document.getElementById("git-status-pill").textContent =
@@ -1104,7 +1138,6 @@
         renderRepoTable("crhywun", up.repos && up.repos.crhywun, "repo-crhywun-tbody", "repo-crhywun-meta", "repo-crhywun-ver");
         renderRepoTable("dgkncn", up.repos && up.repos.dgkncn, "repo-dgkncn-tbody", "repo-dgkncn-meta", "repo-dgkncn-ver");
 
-        // Render Extracted Promo SKUs from both repos
         var allRepoSkus = [];
         var seenSku = Object.create(null);
         ["crhywun", "dgkncn"].forEach(function (k) {
@@ -1138,7 +1171,6 @@
           }).join("");
         }
 
-        // Render Upstream History
         var histTbody = document.getElementById("upstream-history-tbody");
         var hist = up.history || [];
         if (!hist.length) {
@@ -1248,7 +1280,6 @@
         }
       }
 
-      // Global Event Delegation
       document.addEventListener("click", function (ev) {
         var tabBtn = ev.target.closest(".tab-link");
         if (tabBtn) {
@@ -1334,7 +1365,7 @@
         if (el.id === "filter-upstream-sku") renderUpstream();
       });
 
-      document.addEventListener("change", function (ev) {
+      document.addEventListener("change", async function (ev) {
         var el = ev.target;
         var field = el.getAttribute("data-rule-field");
         if (field && draftRules) {
@@ -1344,11 +1375,29 @@
           if (field === "enabled") draftRules[idx].enabled = el.checked;
           return;
         }
+        if (el.id === "sel-lan-ip") {
+          await fetch("/api/lan-ip", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ip: el.value })
+          });
+          await fetchState(true);
+          showToast("Đã chuyển địa chỉ LAN sang " + el.value);
+          return;
+        }
         if (el.id === "filter-packet-status") renderRuntime();
         if (el.id === "filter-preset-origin") renderPresets();
         if (el.id === "chk-auto-upstream" || el.id === "sel-upstream-interval" || el.id === "chk-auto-sync-source") {
           saveUpstreamSettings();
         }
+      });
+
+      document.getElementById("btn-copy-module-url").addEventListener("click", function () {
+        var txt = (appState && appState.liveModuleUrl) || "";
+        if (!txt) return;
+        navigator.clipboard.writeText(txt).then(function () {
+          showToast("📋 Đã copy link cài Module LAN cho iPhone!");
+        });
       });
 
       document.getElementById("btn-add-rule").addEventListener("click", function () {

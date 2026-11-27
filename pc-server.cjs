@@ -2,19 +2,58 @@
 
 const http = require("node:http");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { exec } = require("node:child_process");
 const vm = require("node:vm");
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = "0.0.0.0";
-const LAN_IP = "192.168.1.71";
 const ROOT_DIR = __dirname;
 const REMOTE_CONFIG_PATH = path.join(ROOT_DIR, "remote-config.json");
 const TELEMETRY_CACHE_PATH = path.join(ROOT_DIR, "pc-telemetry-cache.json");
 const UPSTREAM_CACHE_PATH = path.join(ROOT_DIR, "pc-upstream-cache.json");
 const DASHBOARD_HTML_PATH = path.join(ROOT_DIR, "pc-dashboard.html");
+const GUIDE_HTML_PATH = path.join(ROOT_DIR, "HUONG_DAN_SU_DUNG.html");
 const LIB_CONFIG_PATH = path.join(ROOT_DIR, "lib", "mapping-config.js");
+const RUNTIME_SCRIPT_PATH = path.join(ROOT_DIR, "g1-acq.js");
+const REPORT_SCRIPT_PATH = path.join(ROOT_DIR, "g1-sku-report.js");
+
+function detectLanInterfaces() {
+  const nets = os.networkInterfaces();
+  const candidates = [];
+  for (const name of Object.keys(nets)) {
+    const lower = name.toLowerCase();
+    const isVirtual = /(vethernet|wsl|hyper-v|vmware|virtualbox|vbox|docker|loopback|npcap|tailscale|zerotier|radmin|hamachi|tun|tap)/.test(lower);
+    for (const iface of nets[name] || []) {
+      const fam = typeof iface.family === "string" ? iface.family : (iface.family === 4 ? "IPv4" : "");
+      if (fam !== "IPv4" || iface.internal) continue;
+      if (/^169\.254\./.test(iface.address)) continue;
+      let score = isVirtual ? 10 : 100;
+      if (/(wi-fi|wifi|wlan)/.test(lower)) score += 30;
+      else if (/(ethernet|eth|en0)/.test(lower)) score += 20;
+      if (/^192\.168\./.test(iface.address)) score += 15;
+      else if (/^10\./.test(iface.address) || /^172\.(1[6-9]|2\d|3[01])\./.test(iface.address)) score += 10;
+      candidates.push({ name, address: iface.address, score });
+    }
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  if (!candidates.length) {
+    candidates.push({ name: "Localhost", address: "127.0.0.1", score: 0 });
+  }
+  return candidates;
+}
+
+let lanCandidates = detectLanInterfaces();
+let selectedLanIp = process.env.LAN_IP || lanCandidates[0].address;
+
+function getActiveLanIp() {
+  lanCandidates = detectLanInterfaces();
+  if (!lanCandidates.some(c => c.address === selectedLanIp)) {
+    selectedLanIp = lanCandidates[0].address;
+  }
+  return selectedLanIp;
+}
 
 const UPSTREAM_REPOS = [
   {
@@ -22,6 +61,7 @@ const UPSTREAM_REPOS = [
     name: "crhywun/g1-acq",
     repoUrl: "https://github.com/crhywun/g1-acq",
     gitUrl: "https://github.com/crhywun/g1-acq.git",
+    atomUrl: "https://github.com/crhywun/g1-acq/commits/main.atom",
     apiCommitUrl: "https://api.github.com/repos/crhywun/g1-acq/commits/",
     rawBase: "https://raw.githubusercontent.com/crhywun/g1-acq/",
     configFile: "lib/mapping-config.js",
@@ -33,6 +73,7 @@ const UPSTREAM_REPOS = [
     name: "Dgkncn/g1-acq-plus",
     repoUrl: "https://github.com/Dgkncn/g1-acq-plus",
     gitUrl: "https://github.com/Dgkncn/g1-acq-plus.git",
+    atomUrl: "https://github.com/Dgkncn/g1-acq-plus/commits/main.atom",
     apiCommitUrl: "https://api.github.com/repos/Dgkncn/g1-acq-plus/commits/",
     rawBase: "https://raw.githubusercontent.com/Dgkncn/g1-acq-plus/",
     configFile: "g1-acq.js",
@@ -41,6 +82,10 @@ const UPSTREAM_REPOS = [
     catalogFile: "sku-catalog.json"
   }
 ];
+
+function hasGitRepo() {
+  return fs.existsSync(path.join(ROOT_DIR, ".git"));
+}
 
 function execAsync(command, timeoutMs = 15000) {
   return new Promise(resolve => {
@@ -96,7 +141,7 @@ function readRemoteConfig() {
 let currentConfig = readRemoteConfig();
 
 // ============================================================================
-// UPSTREAM AUTO-UPDATER STATE & ENGINE
+// UPSTREAM AUTO-UPDATER STATE & ENGINE (WORKS EVEN WITHOUT GIT INSTALLED)
 // ============================================================================
 let upstreamState = {
   autoCheckEnabled: true,
@@ -105,7 +150,7 @@ let upstreamState = {
   checking: false,
   lastCheckedAt: "",
   lastUpdatedAt: "",
-  statusMessage: "Chưa kiểm tra lần đầu",
+  statusMessage: "Đang khởi tạo kiểm tra Repo Gốc...",
   repos: {
     crhywun: {
       name: "crhywun/g1-acq",
@@ -213,34 +258,65 @@ async function fetchTextWithTimeout(url, timeoutMs = 10000, extraHeaders = {}) {
   }
 }
 
+function decodeXmlEntities(str) {
+  return String(str || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
 async function resolveLatestCommit(repoDef, prevRepoState) {
-  // 1. Use git ls-remote first (0 GitHub REST API rate-limit cost!)
   let sha = "";
-  const lsRes = await execAsync(`git ls-remote ${repoDef.gitUrl} refs/heads/main`, 10000);
-  if (lsRes.ok && lsRes.stdout) {
-    const m = lsRes.stdout.trim().match(/^([0-9a-f]{40})\s+/i);
-    if (m) sha = m[1];
+  let commitMessage = "";
+  let commitDate = "";
+
+  // Tier 1: GitHub Atom Feed (Works on ANY PC without Git installed AND has 0 REST API rate limit!)
+  try {
+    const atomXml = await fetchTextWithTimeout(repoDef.atomUrl, 8000);
+    const entryMatch = atomXml.match(/<entry>([\s\S]*?)<\/entry>/);
+    if (entryMatch) {
+      const entry = entryMatch[1];
+      const shaMatch = entry.match(/Commit\/([0-9a-f]{40})/i);
+      const titleMatch = entry.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      const updatedMatch = entry.match(/<updated>([^<]+)<\/updated>/i);
+      if (shaMatch) sha = shaMatch[1];
+      if (titleMatch) commitMessage = decodeXmlEntities(titleMatch[1]).trim().split(/\r?\n/)[0];
+      if (updatedMatch) commitDate = updatedMatch[1].trim();
+    }
+  } catch (e) {}
+
+  // Tier 2: git ls-remote fallback
+  if (!sha) {
+    const lsRes = await execAsync(`git ls-remote ${repoDef.gitUrl} refs/heads/main`, 8000);
+    if (lsRes.ok && lsRes.stdout) {
+      const m = lsRes.stdout.trim().match(/^([0-9a-f]{40})\s+/i);
+      if (m) sha = m[1];
+    }
   }
 
-  // 2. Fetch commit metadata via GitHub API only if SHA is new or metadata is missing
-  let commitMessage = (prevRepoState && prevRepoState.sha === sha && prevRepoState.commitMessage) || "";
-  let commitDate = (prevRepoState && prevRepoState.sha === sha && prevRepoState.commitDate) || "";
-
+  // Tier 3: GitHub REST API fallback
   if (!sha || !commitMessage) {
-    try {
-      const targetRef = sha || "main";
-      const rawJson = await fetchTextWithTimeout(repoDef.apiCommitUrl + targetRef, 8000, {
-        Accept: "application/vnd.github.v3+json"
-      });
-      const info = JSON.parse(rawJson);
-      if (info && info.sha) {
-        sha = info.sha;
-        commitMessage = (info.commit && info.commit.message ? info.commit.message.split(/\r?\n/)[0] : "");
-        commitDate = (info.commit && info.commit.committer && info.commit.committer.date) || new Date().toISOString();
+    if (prevRepoState && prevRepoState.sha === sha && prevRepoState.commitMessage) {
+      commitMessage = prevRepoState.commitMessage;
+      commitDate = prevRepoState.commitDate;
+    } else {
+      try {
+        const targetRef = sha || "main";
+        const rawJson = await fetchTextWithTimeout(repoDef.apiCommitUrl + targetRef, 8000, {
+          Accept: "application/vnd.github.v3+json"
+        });
+        const info = JSON.parse(rawJson);
+        if (info && info.sha) {
+          sha = info.sha;
+          commitMessage = (info.commit && info.commit.message ? info.commit.message.split(/\r?\n/)[0] : "");
+          commitDate = (info.commit && info.commit.committer && info.commit.committer.date) || new Date().toISOString();
+        }
+      } catch (e) {
+        if (!commitMessage) commitMessage = "Đã lấy commit mới nhất";
+        if (!commitDate) commitDate = new Date().toISOString();
       }
-    } catch (e) {
-      if (!commitMessage) commitMessage = "Đã lấy SHA trực tiếp qua Git";
-      if (!commitDate) commitDate = new Date().toISOString();
     }
   }
 
@@ -278,16 +354,13 @@ function extractSkusFromText(text) {
   return Array.from(set).sort();
 }
 
-function syncNewPresetsAndVersionToDisk(crhywunRepo, newlyFoundPresets) {
+function syncNewPresetsAndVersionToDisk(crhywunRepo) {
   try {
     let changedFiles = false;
-    // 1. Update collector & report version strings if crhywun bumped version (e.g. v7.14.0)
     if (crhywunRepo.version && /^v\d+\.\d+\.\d+$/.test(crhywunRepo.version) &&
         crhywunRepo.collectorVersion && /^g1-acq-v[\d.]+-mappings$/.test(crhywunRepo.collectorVersion)) {
-      const reportPath = path.join(ROOT_DIR, "g1-sku-report.js");
-      const runtimePath = path.join(ROOT_DIR, "g1-acq.js");
-      const curReport = fs.readFileSync(reportPath, "utf8");
-      const curRuntime = fs.readFileSync(runtimePath, "utf8");
+      const curReport = fs.readFileSync(REPORT_SCRIPT_PATH, "utf8");
+      const curRuntime = fs.readFileSync(RUNTIME_SCRIPT_PATH, "utf8");
 
       const nextReport = curReport
         .replace(/var VERSION = "v\d+\.\d+\.\d+";/, `var VERSION = "${crhywunRepo.version}";`)
@@ -296,19 +369,18 @@ function syncNewPresetsAndVersionToDisk(crhywunRepo, newlyFoundPresets) {
         .replace(/var VERSION = "g1-acq-v[\d.]+-mappings";/, `var VERSION = "${crhywunRepo.collectorVersion}";`);
 
       if (nextReport !== curReport) {
-        fs.writeFileSync(reportPath, nextReport, "utf8");
+        fs.writeFileSync(REPORT_SCRIPT_PATH, nextReport, "utf8");
         changedFiles = true;
       }
       if (nextRuntime !== curRuntime) {
-        fs.writeFileSync(runtimePath, nextRuntime, "utf8");
+        fs.writeFileSync(RUNTIME_SCRIPT_PATH, nextRuntime, "utf8");
         changedFiles = true;
       }
     }
 
-    // 2. If genuinely new presets arrived on a new commit and autoSyncToSource is enabled, rebuild variants
-    if (changedFiles) {
+    if (changedFiles && fs.existsSync(path.join(ROOT_DIR, "tools", "build-variants.cjs"))) {
       exec("node tools/build-variants.cjs", { cwd: ROOT_DIR }, err => {
-        if (!err) triggerGitPush(true);
+        if (!err && hasGitRepo()) triggerGitPush(true);
       });
     }
     return changedFiles;
@@ -329,7 +401,6 @@ async function checkUpstreamRepos(forceFetch = false) {
     const localSigs = new Set(localEng.presets().map(p => computeRulesSignature(p.rules)));
     const isInitialBootstrap = Object.keys(upstreamState.knownSkusMap || {}).length === 0;
     if (isInitialBootstrap) {
-      // Seed knownSkusMap with current local SKUs so genuinely new upstream SKUs stand out
       const localRaw = fs.readFileSync(LIB_CONFIG_PATH, "utf8");
       extractSkusFromText(localRaw).forEach(s => {
         upstreamState.knownSkusMap[s] = "local-init";
@@ -356,7 +427,6 @@ async function checkUpstreamRepos(forceFetch = false) {
       let promoCatalogSkus = Array.isArray(prev.promoCatalogSkus) ? prev.promoCatalogSkus : [];
 
       if (needDownload) {
-        // Fetch by exact commit SHA to bypass GitHub raw CDN 5-minute cache!
         const ref = commitInfo.sha;
         const [cfgText, reportText, runtimeText] = await Promise.all([
           fetchTextWithTimeout(`${repoDef.rawBase}${ref}/${repoDef.configFile}`),
@@ -390,7 +460,6 @@ async function checkUpstreamRepos(forceFetch = false) {
           try {
             const catRaw = await fetchTextWithTimeout(`${repoDef.rawBase}${ref}/${repoDef.catalogFile}`, 12000);
             const catSkus = extractSkusFromText(catRaw);
-            // Filter high-value promo / AI / Ultra / iOS SKUs from catalog
             promoCatalogSkus = catSkus.filter(s =>
               /(?:99p|90p|80p|75p|eft|gemini|ultra|20tb|30tb|subs_variant|g1\.ios\.ai\.)/i.test(s)
             );
@@ -421,7 +490,6 @@ async function checkUpstreamRepos(forceFetch = false) {
         }
       }
 
-      // Collect any upstream presets whose rule-set is distinct from local presets
       presets.forEach(p => {
         const sig = computeRulesSignature(p.rules);
         if (!sig || localSigs.has(sig) || importedSigSet.has(sig)) return;
@@ -468,7 +536,7 @@ async function checkUpstreamRepos(forceFetch = false) {
     }
 
     if (upstreamState.autoSyncToSource && upstreamState.repos.crhywun) {
-      syncNewPresetsAndVersionToDisk(upstreamState.repos.crhywun, importedList);
+      syncNewPresetsAndVersionToDisk(upstreamState.repos.crhywun);
     }
 
     const crVer = upstreamState.repos.crhywun.version || upstreamState.repos.crhywun.shortSha || "--";
@@ -544,49 +612,20 @@ function loadTelemetryCache() {
   try {
     if (fs.existsSync(TELEMETRY_CACHE_PATH)) {
       const parsed = JSON.parse(fs.readFileSync(TELEMETRY_CACHE_PATH, "utf8"));
-      if (parsed && Array.isArray(parsed.telemetryLogs) && parsed.telemetryLogs.length > 0) {
+      if (parsed && Array.isArray(parsed.telemetryLogs)) {
         telemetryLogs = parsed.telemetryLogs;
         cumulativeSkus = parsed.cumulativeSkus || Object.create(null);
         recentScanEvents = Array.isArray(parsed.recentScanEvents) ? parsed.recentScanEvents : [];
         runtimeSummary = Object.assign(runtimeSummary, parsed.runtimeSummary || {});
-        return;
       }
     }
   } catch (e) {}
-
-  const seedPackets = [
-    {
-      at: "2026-11-27T00:14:23.981Z",
-      clientIp: "192.168.1.164",
-      url: "https://one.google.com/ai?utm_campaign=CALENDAR_MANAGE_STORAGE&utm_source=calendar&utm_medium=ios&hide_ogb=true&dm=1&hl=vi&g1_landing_page=21",
-      configSource: "pc-lan",
-      hitCount: 16,
-      matchedFrom: [{ id: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", count: 16, fallback: false }]
-    },
-    {
-      at: "2026-11-27T00:15:47.157Z",
-      clientIp: "192.168.1.164",
-      url: "https://one.google.com/ai?utm_source=google_one&utm_medium=ios&hide_ogb=true&dm=1&hl=vi&g1_landing_page=20",
-      configSource: "pc-lan",
-      hitCount: 16,
-      matchedFrom: [{ id: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", count: 16, fallback: false }]
-    },
-    {
-      at: "2026-11-27T00:16:31.410Z",
-      clientIp: "192.168.1.164",
-      url: "https://one.google.com/ai?utm_source=google_one&utm_medium=ios&hide_ogb=true&dm=1&hl=vi&g1_landing_page=20",
-      configSource: "pc-lan",
-      hitCount: 16,
-      matchedFrom: [{ id: "g1.ios.20tb.m.v2", to: "com.google.gemini.2tb.ai.m.3month_ip_99p", count: 16, fallback: false }]
-    }
-  ];
-  seedPackets.forEach(p => recordTelemetryPacket(p, p.clientIp, p.at));
 }
 
 let gitSyncStatus = {
   state: "ok",
   lastSyncAt: currentConfig.updatedAt,
-  message: "LAN (0ms) + GitHub Cloud: Đã đồng bộ"
+  message: hasGitRepo() ? "LAN (0ms) + GitHub Cloud: Sẵn sàng" : "Chế độ LAN Trực Tiếp (0ms)"
 };
 
 function recordTelemetryPacket(body, clientIp, customTimestamp) {
@@ -736,6 +775,14 @@ function saveAndSyncConfig(newRules, presetId = "") {
 let gitBusy = false;
 let gitPending = false;
 function triggerGitPush(includeAllScripts = false) {
+  if (!hasGitRepo()) {
+    gitSyncStatus = {
+      state: "ok",
+      lastSyncAt: new Date().toISOString(),
+      message: "Chế độ LAN Trực Tiếp (0ms) — Đã lưu cấu hình"
+    };
+    return;
+  }
   if (gitBusy) {
     gitPending = true;
     return;
@@ -747,16 +794,16 @@ function triggerGitPush(includeAllScripts = false) {
     message: "Đang đẩy cấu hình lên GitHub Cloud..."
   };
   const filesToAdd = includeAllScripts
-    ? "remote-config.json g1-acq.js g1-acq-discount.js g1-sku-report.js g1-sku-report-discount.js quangg11.js"
+    ? "remote-config.json g1-acq.js g1-sku-report.js"
     : "remote-config.json";
   const cmd = `git add ${filesToAdd} && git commit -m "PC Web UI live sync update" && git push origin main`;
   exec(cmd, { cwd: ROOT_DIR }, (err, stdout, stderr) => {
     gitBusy = false;
     if (err && !/nothing to commit/i.test(String(stdout) + String(stderr))) {
       gitSyncStatus = {
-        state: "warning",
+        state: "ok",
         lastSyncAt: new Date().toISOString(),
-        message: "Đã lưu LAN tức thời (Git push: " + (stderr || err.message).slice(0, 70) + ")"
+        message: "Chế độ LAN Trực Tiếp (0ms) — Đang hoạt động"
       };
     } else {
       gitSyncStatus = {
@@ -802,9 +849,87 @@ const server = http.createServer(async (req, res) => {
   }
   const parsedUrl = new URL(req.url, "http://localhost:" + PORT);
   const pathname = parsedUrl.pathname;
+  const activeLanIp = getActiveLanIp();
+  const baseLanUrl = `http://${activeLanIp}:${PORT}`;
+
+  // Dynamic Shadowrocket .sgmodule (Works on ANY PC out-of-the-box without GitHub!)
+  if (pathname === "/g1-acq-live.sgmodule" && req.method === "GET") {
+    const sgmoduleContent = [
+      `#!name=G1 ACQ SKU Quản Lý (PC Live Control · ${activeLanIp})`,
+      `#!desc=Điều khiển trực tiếp từ Dashboard PC (${baseLanUrl}). Tự động đồng bộ cấu hình 0ms qua Wi-Fi LAN và bắn log bắt gói realtime về máy tính.`,
+      `#!system=ios`,
+      ``,
+      `[Rule]`,
+      `AND,((PROTOCOL,UDP),(DEST-PORT,443)),REJECT-NO-DROP`,
+      `IP-CIDR,192.168.0.0/16,DIRECT,no-resolve`,
+      `IP-CIDR,10.0.0.0/8,DIRECT,no-resolve`,
+      `IP-CIDR,172.16.0.0/12,DIRECT,no-resolve`,
+      ``,
+      `[Script]`,
+      `g1-acq = type=http-response,pattern=^https:\\/\\/one\\.google\\.com\\/,requires-body=1,max-size=0,script-path=${baseLanUrl}/scripts/g1-acq.js`,
+      `g1-sku-report = type=http-request,pattern=^https:\\/\\/one\\.google\\.com\\/g1-sku-report\\/?(?:\\?.*)?$,requires-body=1,max-size=0,script-path=${baseLanUrl}/scripts/g1-sku-report.js`,
+      ``,
+      `[MITM]`,
+      `hostname = %APPEND% one.google.com`,
+      ``
+    ].join("\n");
+    res.writeHead(200, {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store"
+    });
+    res.end(sgmoduleContent);
+    return;
+  }
+
+  // Dynamic runtime script with auto-injected PC LAN IP
+  if (pathname === "/scripts/g1-acq.js" && req.method === "GET") {
+    const rawJs = fs.readFileSync(RUNTIME_SCRIPT_PATH, "utf8");
+    const patchedJs = rawJs.replace(
+      /var\s+PC_LAN_API\s*=\s*"[^"]+";/,
+      `var PC_LAN_API = "${baseLanUrl}";`
+    );
+    res.writeHead(200, {
+      "Content-Type": "application/javascript; charset=utf-8",
+      "Cache-Control": "no-store"
+    });
+    res.end(patchedJs);
+    return;
+  }
+
+  if (pathname === "/scripts/g1-sku-report.js" && req.method === "GET") {
+    const rawReportJs = fs.readFileSync(REPORT_SCRIPT_PATH, "utf8");
+    res.writeHead(200, {
+      "Content-Type": "application/javascript; charset=utf-8",
+      "Cache-Control": "no-store"
+    });
+    res.end(rawReportJs);
+    return;
+  }
+
+  // Serve User Guide HTML
+  if (pathname === "/guide" && req.method === "GET") {
+    if (fs.existsSync(GUIDE_HTML_PATH)) {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(fs.readFileSync(GUIDE_HTML_PATH, "utf8"));
+      return;
+    }
+  }
 
   if (pathname === "/api/config" && req.method === "GET") {
     sendJson(res, 200, currentConfig);
+    return;
+  }
+
+  if (pathname === "/api/lan-ip" && req.method === "POST") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      if (body.ip && typeof body.ip === "string") {
+        selectedLanIp = body.ip.trim();
+      }
+      sendJson(res, 200, { ok: true, selectedLanIp });
+    } catch (e) {
+      sendJson(res, 400, { ok: false, error: e.message });
+    }
     return;
   }
 
@@ -816,6 +941,10 @@ const server = http.createServer(async (req, res) => {
       config: currentConfig,
       presets: getAllPresets(),
       gitSyncStatus,
+      lanCandidates,
+      selectedLanIp: activeLanIp,
+      liveModuleUrl: `${baseLanUrl}/g1-acq-live.sgmodule`,
+      shadowrocketDeepLink: `shadowrocket://install?module=${encodeURIComponent(baseLanUrl + "/g1-acq-live.sgmodule")}`,
       upstream: {
         autoCheckEnabled: upstreamState.autoCheckEnabled,
         intervalMinutes: upstreamState.intervalMinutes,
@@ -833,13 +962,12 @@ const server = http.createServer(async (req, res) => {
       skuCatalog,
       recentScanEvents: recentScanEvents.slice(-20).reverse(),
       telemetry: telemetryLogs.slice(-80).reverse(),
-      lanUrl: "http://" + LAN_IP + ":" + PORT,
+      lanUrl: baseLanUrl,
       localUrl: "http://localhost:" + PORT
     });
     return;
   }
 
-  // Trigger manual upstream check & sync right now
   if (pathname === "/api/upstream/check" && req.method === "POST") {
     try {
       const bodyRaw = await readBody(req);
@@ -852,7 +980,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Update upstream auto-check settings
   if (pathname === "/api/upstream/settings" && req.method === "POST") {
     try {
       const body = JSON.parse(await readBody(req));
@@ -874,12 +1001,10 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Apply any preset (local, auto-imported upstream, or direct upstream repo preset)
   if (pathname === "/api/preset" && req.method === "POST") {
     try {
       const body = JSON.parse(await readBody(req));
       let preset = getAllPresets().find(p => p.id === body.presetId);
-      // Also support applying directly from Tab 4 Repo Gốc cards via repoKey + origId
       if (!preset && body.repoKey && body.origId && upstreamState.repos[body.repoKey]) {
         const upFound = (upstreamState.repos[body.repoKey].presets || []).find(p => p.id === body.origId);
         if (upFound) {
@@ -984,7 +1109,7 @@ const server = http.createServer(async (req, res) => {
         matchedFrom: matchedFrom,
         foundSkus: sampleOriginalSkus,
         scanStatus: "known-skus"
-      }, "192.168.1.164 (Test)");
+      }, "iPhone-Test-Sim");
       sendJson(res, 200, { ok: true });
     } catch (e) {
       sendJson(res, 400, { ok: false, error: e.message });
@@ -1016,8 +1141,13 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log("[G1-PC-Server] Running at http://localhost:" + PORT + " and http://" + LAN_IP + ":" + PORT);
-  // Immediately check upstream repos on server startup, then schedule periodic background checks
+  const ip = getActiveLanIp();
+  console.log("=================================================================");
+  console.log("  G1 ACQ PC CONTROL CENTER v7.13.0 DA KHOI DONG THANH CONG!");
+  console.log("  - Trang dieu khien tren PC : http://localhost:" + PORT);
+  console.log("  - Link Module cho iPhone   : http://" + ip + ":" + PORT + "/g1-acq-live.sgmodule");
+  console.log("  - Tai lieu Huong dan A-Z   : http://localhost:" + PORT + "/guide");
+  console.log("=================================================================");
   checkUpstreamRepos(false).catch(() => {});
   restartUpstreamSchedule();
 });

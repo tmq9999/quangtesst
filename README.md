@@ -1,106 +1,103 @@
-# g1-acq
+# Hướng Dẫn Sử Dụng G1 ACQ Shadowrocket Module & Bảng Điều Khiển PC (`v7.13.0`)
 
-[![Telegram](https://img.shields.io/badge/Telegram-AI羊毛交流群-26A5E4?logo=telegram&logoColor=white)](https://t.me/muihbb)
-
-> 💬 **AI羊毛交流群**:https://t.me/muihbb —— 交流 AI 优惠、订阅羊毛
-
-Google One(iOS)订阅入口的商品 ID 映射模块,适用于 **Shadowrocket / 小火箭**。
-
-在 `one.google.com/ai` 订阅页的响应里,把 20TB、30TB 两个月付档的原始 iOS 内购 ID 替换为实际存在的优惠档 ID,让订阅面板直接以优惠档拉起 App Store 收银台。
-
-> 仅改写响应文本中的商品 ID 字符串。改写后实际能否下单、价格与权益,以 App Store 收银台面板和 Google One 账户的实际状态为准。
+Bộ công cụ giúp bắt gói phản hồi trang nâng cấp Google One / Gemini (`https://one.google.com/ai`), thu thập mã SKU gốc, ghi đè sang các mã khuyến mãi ẩn trên App Store iOS (như **Google AI Pro 5TB giảm 99% 3 tháng đầu**, **Ultra 20TB / 30TB giá cũ Thổ Nhĩ Kỳ**), điều khiển trực tiếp từ máy tính (`0ms` qua mạng Wi-Fi LAN) và tự động cập nhật mẫu mới từ 2 repo gốc (`crhywun/g1-acq` & `Dgkncn/g1-acq-plus`).
 
 ---
 
-## 模块地址(手机端只填这一条)
+## 1. Cấu Trúc Thư Mục Gọn Nhẹ (Mang Sang Máy Khác Dùng Ngay)
 
+```text
+G1-ACQ-PC-Dashboard/
+├── 1_Chay_Dashboard_PC.bat          # Bấm đúp để bật Server điều khiển + mở Web http://localhost:8787
+├── 2_Mo_Cong_Firewall_LAN_8787.bat  # Chạy 1 lần trên máy mới để mở cổng tường lửa Windows cho iPhone kết nối
+├── HUONG_DAN_SU_DUNG.html           # Bản hướng dẫn giao diện Web (bấm đúp mở đọc ngay bằng trình duyệt)
+├── HUONG_DAN_SU_DUNG.md             # Bản hướng dẫn định dạng Markdown
+├── pc-server.cjs                    # Máy chủ Node.js (Tự nhận IP LAN, phát .sgmodule động, Auto-Update Repo Gốc)
+├── pc-dashboard.html                # Giao diện Web Điều Khiển 4 Tab
+├── remote-config.json               # Cấu hình quy tắc đang kích hoạt
+├── g1-acq.js                        # Script Runtime bắt gói & ghi đè SKU cho Shadowrocket
+├── g1-sku-report.js                 # Script Trang quản lý cục bộ trên Safari iPhone (one.google.com/g1-sku-report)
+├── lib/mapping-config.js            # Thư viện lõi chứa quy tắc & bộ mẫu Tiếng Việt
+└── tools/build-variants.cjs         # Công cụ đồng bộ khi nâng cấp mã nguồn
 ```
-https://cdn.jsdelivr.net/gh/crhywun/g1-acq@main/g1-acq.sgmodule
-```
 
-脚本地址(模块内已引用,无需单独添加):
+---
 
-```
-https://cdn.jsdelivr.net/gh/crhywun/g1-acq@main/g1-acq.js
-```
+## 2. Cài Đặt Trên Máy Tính Mới (Chỉ Mất 1 Phút)
 
-## 映射表
+1. **Cài đặt Node.js** (nếu máy tính chưa có):
+   - Tải bản **Node.js LTS** (từ `v18` trở lên, khuyến nghị `v20` / `v22`) tại [https://nodejs.org](https://nodejs.org) rồi bấm *Next* cài đặt bình thường. *(Không cần cài thêm thư viện `npm install` hay cài Git)*.
+2. **Mở cổng kết nối mạng LAN cho iPhone (chỉ cần chạy 1 lần đầu)**:
+   - Bấm đúp vào file **`2_Mo_Cong_Firewall_LAN_8787.bat`** → Chọn **Yes** khi Windows hỏi quyền Admin để cho phép cổng `TCP 8787` đi qua tường lửa Windows.
+3. **Khởi động Bảng Điều Khiển PC**:
+   - Bấm đúp vào file **`1_Chay_Dashboard_PC.bat`**.
+   - Giữ cửa sổ đen chạy nền; trình duyệt sẽ tự mở địa chỉ **`http://localhost:8787`**.
 
-| 原始 iOS 内购 ID | 替换为 | 说明 |
-|---|---|---|
-| `g1.ios.20tb.m.v2` | `g1.20tb.3months_ip_90p.acq` | 20TB 月付 → 优惠档 |
-| `g1.ios.30tb.ai.pro.m` | `g1.ai.ultra.3months_ip_90p.acq` | 30TB AI Pro 月付 → AI Ultra 优惠档 |
+---
 
-两个优惠档名称必须真实出现在响应的商品目录里,脚本才会执行替换;主档不在目录而备用档(75p)在目录时,自动降级使用备用档:
+## 3. Cài Đặt Shadowrocket Trên iPhone / iPad
 
-| 主档(90p) | 备用档(75p) |
-|---|---|
-| `g1.20tb.3months_ip_90p.acq` | `g1.20tb.3months_ip_75p.acq` |
-| `g1.ai.ultra.3months_ip_90p.acq` | `g1.ai.ultra.3months_ip_75p.acq` |
+Đảm bảo **iPhone và Máy tính đang bắt chung 1 mạng Wi-Fi**.
 
-优惠档 ID 属于限时促销商品,名称与档位随 Google 活动变化;目录探测日志会列出当前响应里真实存在的所有优惠档,以日志为准增删 `SKU_MAP`。
+### Bước 3.1 — Bật Giải Mã HTTPS (MITM) Trong Shadowrocket *(Bắt buộc làm 1 lần)*
+Nếu chưa bật giải mã HTTPS và tin cậy chứng chỉ, Shadowrocket sẽ không đọc được nội dung `one.google.com`:
+1. Mở **Shadowrocket** → vào tab **Cấu hình (Config)** → bấm chữ **`(i)`** ở dòng cấu hình đang dùng → chọn **Giải mã HTTPS (HTTPS Decryption)**.
+2. Bật công tắc **Giải mã HTTPS** lên.
+3. Bấm **Tạo chứng chỉ CA mới (Generate New CA Certificate)** → **Cài đặt chứng chỉ (Install Certificate)** → Cho phép tải hồ sơ về máy.
+4. Vào **Cài đặt iPhone (Settings)** → **Đã tải về hồ sơ (Profile Downloaded)** → Bấm **Cài đặt (Install)** chứng chỉ Shadowrocket.
+5. **Quan trọng nhất**: Vào **Cài đặt chung (General)** → **Giới thiệu (About)** → kéo xuống cuối chọn **Cài đặt tin cậy chứng chỉ (Certificate Trust Settings)** → **Bật xanh** dòng chứng chỉ gốc của Shadowrocket!
 
-## 安装(Shadowrocket / 小火箭)
+### Bước 3.2 — Thêm Module G1 ACQ Vào Shadowrocket
+1. Nhìn lên thanh màu xanh đầu trang **`http://localhost:8787`** trên máy tính, bấm nút **`📋 Copy Link Module LAN`** (có dạng `http://192.168.x.x:8787/g1-acq-live.sgmodule` — máy chủ đã tự điền đúng IP của máy tính đó).
+2. Gửi link đó sang iPhone → Mở **Shadowrocket** → Tab **Mô-đun (Module)** → Bấm dấu **`+` (Thêm Mô-đun)** ở góc trên phải → Dán link vào và bấm **OK**.
+3. Đảm bảo chỉ bật **1 module G1 ACQ duy nhất** (tắt các module G1 cũ nếu có để tránh xung đột), sau đó gạt nút **Bật kết nối VPN Shadowrocket** ở trang chủ.
 
-进入「HTTPS 解密」设置的入口:配置页 → 点当前使用配置右侧的 **(i) 图标**,在弹出的配置编辑页里找到 **HTTPS 解密**。
+---
 
-![配置页入口:点击 shadowrocket.conf 右侧的 (i) 图标进入配置编辑,才能看到 HTTPS 解密](docs-config-entry.png)
+## 4. Cách Sử Dụng 4 Tab Trên Bảng Điều Khiển PC (`http://localhost:8787`)
 
-1. 首页保持 VPN 开启
-2. 设置 → **HTTPS 解密**(即 MITM)→ 总开关打开 → 证书:生成并安装 → iOS 系统里完成两步:
-   - 设置 → 通用 → VPN 与设备管理 → 安装 Shadowrocket 描述文件
-   - 设置 → 通用 → 关于本机 → **证书信任设置** → 打开 Shadowrocket 根证书的信任开关(漏这步解密无效)
-3. HTTPS 解密页的 hostname 列表确认有 `one.google.com`(模块开启时自动追加;若日志始终无 `[g1-acq]` 且连接显示未解密,再手动把 `one.google.com` 填进 hostname 列表末尾)
-4. 配置 → 模块 → 右上角 `+` → 填入上面的模块地址 → 安装
-5. 确认模块开关点亮,长按重连一次
+### ⚡ Tab 1: Chọn Bộ Mẫu Gói (Presets)
+- Chứa sẵn các mẫu đã kiểm chứng sống trên iOS và tự động gộp thêm các mẫu mới từ Repo Gốc:
+  - **Mẫu số 1 (`pro-1yuan-20tb`)**: Thay nút **Ultra 20TB** (`g1.ios.20tb.m.v2`) thành gói **Google AI Pro (5 TB) giảm 99% trong 3 tháng đầu** (`com.google.gemini.2tb.ai.m.3month_ip_99p`).
+  - **Mẫu số 2 (`pro-1yuan-2tb` · Chuẩn `v7.13.0`)**: Thay cả 2 mã Pro Tháng (`g1.ios.2tb.ai.m` và `g1.ios.ai.2tb.m.ip_3mo_75p.acq`) thành gói **Google AI Pro giảm 99%** (dành cho tài khoản không hiện nút Ultra 20TB).
+  - **Mẫu số 3 (`tr-ultra-legacy`)**: Mở lại **Ultra 20TB / 30TB giá cũ** (`g1.ios.20tb.m` `1989.99 TRY` / `g1.ios.30tb.m` `2949.99 TRY` trên Apple ID Thổ Nhĩ Kỳ).
+  - **Các bộ Dò 10 Nút (Gói A / B / C / D)**: Gắn 10 mã ẩn vào 10 nút trên trang để dò mã mới.
+- **Thao tác**:
+  1. Bấm **`⚡ Áp dụng mẫu này cho iPhone`** trên máy tính.
+  2. Trên iPhone, **vuốt đóng hẳn ứng dụng Google (biểu tượng chữ G) hoặc Gemini**, mở lại ứng dụng → Bấm vào ảnh đại diện → **Nâng cấp / Quản lý gói Google One** → Bấm nút gói tương ứng để bật bảng thanh toán Apple Pay!
 
-## 工作范围
+### 🛠️ Tab 2: Quản Lý & Sửa Tay Quy Tắc
+- Sửa trực tiếp từng dòng `Kiểu khớp (Exact / Prefix)`, `Mã SKU Gốc (From)` và `Mã SKU Đích (To)`.
+- Lưu ý: Nên dùng **`Exact (Khớp 1-1)`** và mỗi nút nguồn gắn 1 mã đích khác nhau để tránh lỗi Google One ẩn nút khi bị trùng mã đích trên cùng 1 trang.
 
-- URL 匹配:`^https://one\.google\.com/ai\?`(仅订阅入口页,不拦全站)
-- MITM(设置 → HTTPS 解密)hostname:`one.google.com`
-- QUIC 屏蔽:模块自带规则拦截 UDP 443,避免 Google App 走 HTTP/3 绕过 HTTPS 解密
+### 📡 Tab 3: Nhật Ký Bắt Gói · SKU Gốc · Log Runtime
+- Theo dõi trực tiếp theo thời gian thực mỗi khi iPhone mở trang gói Google One:
+  1. **Bảng 1 — Nhật Ký Bắt Gói & Ghi Đè SKU**: Hiện giờ bắt gói, IP của iPhone, đường dẫn URL và chính xác cặp `SKU Gốc ━━► SKU Đích ×Số lần`.
+  2. **Bảng 2 — Kho Mã SKU Gốc Thu Thập Được**: Toàn bộ các mã SKU gốc mà Google trả về cho tài khoản đó. Bấm **`+ Dùng làm SKU gốc`** để đưa ngay sang Tab 2.
+  3. **Bảng 3 — Console Log Runtime**: Luồng log thực thi chi tiết của script.
 
-## 使用流程(手机端)
+### 🔄 Tab 4: Tự Động Cập Nhật Repo Gốc
+- Cứ mỗi **5 phút** (hoặc khi bấm nút **`🔄 Kiểm tra Repo Gốc`**), máy chủ tự kiểm tra commit mới nhất trên **`crhywun/g1-acq`** và **`Dgkncn/g1-acq-plus`**.
+- Nếu tác giả gốc tung ra preset mới hoặc mã SKU khuyến mãi mới, hệ thống tự động tải về và đưa thẳng vào Tab 1 & Tab 4 mà bạn không cần tải lại bộ code thủ công.
 
-1. 打开 **Google App**(彩色 G 图标那个) → 头像 → **Google One 管理**,进入订阅管理页(模块改写的就是这个页面发出的 `/ai` 响应)
-2. 在 Ultra 方案选择面板里,直接点 **20TB 档的「订阅此方案」**,App Store 收银台即以优惠价(约一折)拉起;30TB 档同理
+---
 
-![Google One Ultra 方案选择面板:点击 20TB 档的「订阅此方案」按钮](docs-ultra-plans.png)
+## 5. Dùng Độc Lập Trên iPhone Khi Không Bật Máy Tính
 
-> 注意:从 Google One 独立 App 进入的订阅页走的是原生接口,不在本模块的改写范围内;请从 **Google App 内的 Google One 管理** 进入。
+Ngay cả khi tắt máy tính hoặc mang iPhone ra ngoài dùng 4G:
+- Script trong Shadowrocket tự động rơi về đọc cấu hình lưu trong bộ nhớ cục bộ của iPhone (`$persistentStore`).
+- Bạn vẫn có thể đổi mẫu trực tiếp ngay trên iPhone bằng cách mở trình duyệt **Safari** truy cập địa chỉ ảo:
+  👉 **`https://one.google.com/g1-sku-report`**
 
-## 验证与排错
+---
 
-进 数据 → 日志 → 代理,搜索 `g1-acq`:
+## 6. Xử Lý Sự Cố Thường Gặp
 
-| 日志 | 含义 |
-|---|---|
-| `[g1-acq] v6 loaded` | 脚本已加载,版本正确 |
-| `目录优惠档: ...` | 响应里真实存在的全部优惠档 |
-| `主档不在目录,降级 ...` | 已自动使用备用档 |
-| `共改写 N 处` | 替换已执行 |
-| 完全没有 `g1-acq` | 脚本未触发,检查 VPN / HTTPS 解密(证书安装 + 信任开关) / 模块开关 |
-
-改完 `SKU_MAP` 后:本地 `git push`,然后手机端清一次小火箭缓存(数据 → 清空所有数据)再重连即可拉到新脚本;jsDelivr 有约几分钟缓存,可手动 purge:`https://purge.jsdelivr.net/gh/crhywun/g1-acq@main/g1-acq.js`。
-
-## 权限与安全边界
-
-- **流量可见范围**:脚本仅匹配 `one.google.com/ai` 的 HTTP 响应,可读取并改写该页面的响应体;其余任何域名的流量一概不读取、不修改
-- **无外发能力**:脚本不包含 `$httpClient` 等网络调用,所有输出只写入手机本地日志
-- **MITM 范围**:仅追加 `one.google.com` 一个 hostname;CA 证书由用户在本机生成并保管,模块作者无法获取
-- **系统权限**:不索取任何 iOS 权限(无通知/定位/相册等弹窗);安装动作只发生在小火箭内部
-- **全局副作用**:`[Rule]` 屏蔽全部 UDP 443(QUIC),影响所有 App 的 HTTP/3 访问速度,属性能副作用,无隐私影响
-- **信任模型**:脚本地址指向 GitHub 仓库 + jsDelivr CDN。安装即表示信任仓库所有者对脚本的后续修改(理论上恶意版本最多可获取 `one.google.com/ai` 这一个域的 Cookie 与页面数据,其他站点一律碰不到),以及 GitHub / jsDelivr 的服务完整性。脚本开源,任何人可审查;分发时可把 `@main` 换成具体 commit hash 锁定不可变版本
-
-## 文件
-
-| 文件 | 用途 |
-|---|---|
-| `g1-acq.sgmodule` | Shadowrocket 模块(规则 + 脚本引用 + MITM) |
-| `g1-acq.js` | 响应改写脚本(v6) |
-
-## 自定义
-
-- 增删档位:只改 `g1-acq.js` 顶部 `SKU_MAP` 与 `FALLBACK` 两个表
-- 改价格:当前未实现价格字段改写;如需,在替换循环后追加对 `price_amount_micros` 的正则替换
-- 脚本无任何网络上报与外部依赖
+1. **Mở Google App trên iPhone nhưng Tab 3 trên PC không nhảy gói tin mới?**
+   - Kiểm tra iPhone và PC có đang chung mạng Wi-Fi không (nếu PC cắm dây mạng LAN còn iPhone bắt Wi-Fi khác lớp mạng, hãy kiểm tra hộp chọn Card mạng LAN trên đầu trang Dashboard).
+   - Chạy file **`2_Mo_Cong_Firewall_LAN_8787.bat`** trên máy tính để đảm bảo Windows Firewall không chặn cổng `8787`.
+   - Kiểm tra mục **Cài đặt tin cậy chứng chỉ (Certificate Trust Settings)** trên iPhone đã bật xanh chứng chỉ Shadowrocket chưa.
+2. **Bấm nút mua trên iPhone hiện thông báo *"Giao dịch của bạn chưa thể hoàn tất"* trên App Store?**
+   - Nghĩa là mã SKU đích đó đã bị Google khóa/gỡ trên iOS App Store (ví dụ các mã `75p.acq` hoặc mã `*_eft` vốn chỉ dành cho Android Google Play). Hãy chuyển sang **Mẫu số 1 / Mẫu số 2 (`com.google.gemini.2tb.ai.m.3month_ip_99p`)** hoặc **Mẫu số 3 (`g1.ios.20tb.m`)**.
+3. **Trang nâng cấp trong Google App quay vòng hoặc báo lỗi 502?**
+   - Do giao thức QUIC (UDP 443). Trong module đã tích hợp sẵn dòng chặn `UDP 443` để ép hạ xuống TCP giúp MITM ổn định; chỉ cần tắt bật lại VPN Shadowrocket và mở lại Google App.

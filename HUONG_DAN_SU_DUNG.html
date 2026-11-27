@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Hướng Dẫn Sử Dụng G1 ACQ Shadowrocket Module & PC Dashboard</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 32px 20px 60px;
+      background: #0b0f19;
+      color: #f3f4f6;
+      font: 15.5px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    .hero {
+      background: linear-gradient(135deg, #1e3a8a 0%, #111827 100%);
+      border: 1px solid #3b82f6;
+      border-radius: 16px;
+      padding: 26px 30px;
+      margin-bottom: 26px;
+    }
+    h1 { margin: 0 0 8px; font-size: 26px; color: #fff; }
+    h2 {
+      margin: 28px 0 12px;
+      font-size: 20px;
+      color: #60a5fa;
+      border-bottom: 1px solid #1f2937;
+      padding-bottom: 8px;
+    }
+    h3 { margin: 18px 0 8px; font-size: 16.5px; color: #34d399; }
+    .box {
+      background: #111827;
+      border: 1px solid #374151;
+      border-radius: 12px;
+      padding: 22px 26px;
+      margin-bottom: 20px;
+    }
+    .warn-box {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin: 14px 0;
+      color: #fde68a;
+    }
+    code {
+      font-family: Consolas, "Cascadia Code", monospace;
+      background: #1f2937;
+      color: #38bdf8;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+    pre {
+      background: #050811;
+      border: 1px solid #1f2937;
+      border-radius: 10px;
+      padding: 16px;
+      overflow-x: auto;
+      color: #cbd5e1;
+      font-family: Consolas, monospace;
+      font-size: 13.5px;
+      line-height: 1.6;
+    }
+    ol, ul { padding-left: 22px; }
+    li { margin-bottom: 8px; }
+    a { color: #60a5fa; }
+    .btn-open {
+      display: inline-block;
+      margin-top: 12px;
+      background: #10b981;
+      color: #fff;
+      font-weight: 700;
+      padding: 10px 18px;
+      border-radius: 8px;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>⚡ Hướng Dẫn Sử Dụng G1 ACQ Module & Bảng Điều Khiển PC (v7.13.0)</h1>
+      <div>Bộ công cụ bắt gói, thu thập SKU gốc và ghi đè SKU khuyến mãi Google One / Gemini trên iOS qua Shadowrocket — điều khiển trực tiếp từ máy tính & tự động đồng bộ Repo Gốc.</div>
+      <a class="btn-open" href="http://localhost:8787">🚀 Mở Bảng Điều Khiển PC (http://localhost:8787)</a>
+    </div>
+
+    <div class="box">
+      <h2>1. Khởi Động Trên Máy Tính Mới (Chỉ 3 Bước)</h2>
+      <ol>
+        <li><strong>Cài đặt Node.js</strong> (nếu máy chưa có): Tải bản <strong>LTS</strong> tại <a href="https://nodejs.org" target="_blank">https://nodejs.org</a> và cài đặt mặc định (không cần cài thêm thư viện hay Git).</li>
+        <li><strong>Mở cổng tường lửa LAN (chạy 1 lần đầu tiên)</strong>: Bấm đúp file <code>2_Mo_Cong_Firewall_LAN_8787.bat</code> và chọn <strong>Yes</strong> để cho phép iPhone trong cùng mạng Wi-Fi kết nối vào cổng <code>8787</code> của máy tính.</li>
+        <li><strong>Chạy Bảng điều khiển</strong>: Bấm đúp file <code>1_Chay_Dashboard_PC.bat</code>. Giữ cửa sổ đen chạy nền, trình duyệt sẽ tự động mở trang <code>http://localhost:8787</code>.</li>
+      </ol>
+    </div>
+
+    <div class="box">
+      <h2>2. Cài Đặt Shadowrocket Trên iPhone / iPad</h2>
+      <p>Đảm bảo <strong>iPhone và Máy tính đang kết nối chung một mạng Wi-Fi</strong>.</p>
+
+      <h3>Bước 2.1 — Bật Giải Mã HTTPS & Tin Cậy Chứng Chỉ CA (Bắt buộc làm 1 lần)</h3>
+      <ol>
+        <li>Mở <strong>Shadowrocket</strong> → Tab <strong>Cấu hình (Config)</strong> → bấm chữ <code>(i)</code> ở cấu hình đang dùng → chọn <strong>Giải mã HTTPS (HTTPS Decryption)</strong>.</li>
+        <li>Bật công tắc <strong>Giải mã HTTPS</strong> → bấm <strong>Tạo chứng chỉ CA mới</strong> → <strong>Cài đặt chứng chỉ</strong> → Cho phép tải hồ sơ.</li>
+        <li>Vào <strong>Cài đặt iPhone</strong> → <strong>Đã tải về hồ sơ</strong> → Cài đặt chứng chỉ Shadowrocket.</li>
+        <li>Vào <strong>Cài đặt chung (General)</strong> → <strong>Giới thiệu (About)</strong> → kéo xuống cuối chọn <strong>Cài đặt tin cậy chứng chỉ (Certificate Trust Settings)</strong> → <strong>Gạt bật xanh</strong> dòng chứng chỉ Shadowrocket.</li>
+      </ol>
+      <div class="warn-box">
+        ⚠️ Nếu quên Bước 4 (bật tin cậy chứng chỉ trong Cài đặt chung → Giới thiệu), iPhone sẽ không giải mã được HTTPS của <code>one.google.com</code> và sẽ không bắt được SKU!
+      </div>
+
+      <h3>Bước 2.2 — Thêm Module Vào Shadowrocket</h3>
+      <ol>
+        <li>Trên trang <code>http://localhost:8787</code> của máy tính, bấm nút <strong>📋 Copy Link Module LAN</strong> trên thanh đầu trang (ví dụ: <code>http://192.168.1.x:8787/g1-acq-live.sgmodule</code> — máy chủ tự động nhận đúng IP LAN của máy tính).</li>
+        <li>Gửi link sang iPhone → Mở <strong>Shadowrocket</strong> → Tab <strong>Mô-đun (Module)</strong> → bấm dấu <code>+</code> góc trên phải → Dán link và bấm <strong>OK</strong>.</li>
+        <li>Chỉ bật duy nhất 1 module G1 ACQ này (tắt các module G1 cũ nếu có), sau đó bật VPN Shadowrocket ở trang chủ.</li>
+      </ol>
+    </div>
+
+    <div class="box">
+      <h2>3. Cách Sử Dụng 4 Tab Trên Bảng Điều Khiển PC</h2>
+      <ul>
+        <li><strong>⚡ Tab 1 — Chọn Bộ Mẫu Gói (Presets)</strong>: Bấm <strong>Áp dụng mẫu này cho iPhone</strong> trên mẫu bạn muốn (ví dụ Mẫu 1 hoặc Mẫu 2 để mở <strong>Google AI Pro 5TB giảm 99% 3 tháng đầu</strong>, hoặc Mẫu 3 để mở <strong>Ultra 20TB/30TB giá cũ Thổ Nhĩ Kỳ</strong>). Sau khi bấm, trên iPhone hãy <strong>vuốt đóng hẳn Google App (icon chữ G)</strong> rồi mở lại mục Quản lý gói Google One và bấm nút mua.</li>
+        <li><strong>🛠️ Tab 2 — Quản Lý & Sửa Tay Quy Tắc</strong>: Tự ghép cặp <code>Mã SKU Gốc (From)</code> → <code>Mã SKU Đích (To)</code>. Khuyến nghị dùng chế độ <code>Exact (Khớp 1-1)</code>, mỗi nút nguồn gắn 1 mã đích duy nhất.</li>
+        <li><strong>📡 Tab 3 — Nhật Ký Bắt Gói · SKU Gốc · Log Runtime</strong>: Xem trực tiếp từng gói phản hồi iPhone gửi về, số vị trí đã ghi đè, bảng tổng hợp toàn bộ mã SKU gốc của tài khoản và luồng log runtime.</li>
+        <li><strong>🔄 Tab 4 — Tự Động Cập Nhật Repo Gốc</strong>: Tự động kiểm tra định kỳ mỗi 5 phút tới <code>crhywun/g1-acq</code> và <code>Dgkncn/g1-acq-plus</code>; hễ có mẫu mới hoặc SKU khuyến mãi mới sẽ tự nạp thẳng vào Web điều khiển.</li>
+      </ul>
+    </div>
+
+    <div class="box">
+      <h2>4. Dùng Trực Tiếp Trên iPhone Khi Tắt Máy Tính</h2>
+      <p>Khi mang điện thoại ra ngoài hoặc tắt máy tính, bạn vẫn có thể mở trình duyệt <strong>Safari</strong> trên iPhone (khi đang bật Shadowrocket) và truy cập:</p>
+      <pre>https://one.google.com/g1-sku-report</pre>
+      <p>Trang quản lý cục bộ Tiếng Việt 3 Tab sẽ hiện ngay trên Safari để bạn đổi mẫu, sửa quy tắc và xem lịch sử bắt gói trên điện thoại.</p>
+    </div>
+
+    <div class="box">
+      <h2>5. Khắc Phục Nhanh Các Lỗi Thường Gặp</h2>
+      <ul>
+        <li><strong>Không thấy gói tin nổ về Tab 3 trên PC</strong>: Chạy lại file <code>2_Mo_Cong_Firewall_LAN_8787.bat</code> bằng quyền Admin trên máy tính; kiểm tra iPhone và PC có đang chung lớp mạng Wi-Fi không; kiểm tra đã bật Tin cậy chứng chỉ CA trên iPhone chưa.</li>
+        <li><strong>App Store hiện thông báo "Giao dịch của bạn chưa thể hoàn tất"</strong>: Mã SKU đích đó đã hết hạn hoặc chỉ dành cho Android Google Play (ví dụ họ <code>*_eft</code> hoặc <code>75p.acq</code> cũ). Hãy chọn sang Mẫu số 1, Mẫu số 2 (<code>com.google.gemini.2tb.ai.m.3month_ip_99p</code>) hoặc Mẫu số 3 (<code>g1.ios.20tb.m</code>).</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>
